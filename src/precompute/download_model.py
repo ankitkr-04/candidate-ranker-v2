@@ -44,7 +44,7 @@ def ensure_model(local_dir: Path = MODEL_DIR) -> Path:
         return local_dir
 
     os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
-    from huggingface_hub import snapshot_download
+    from huggingface_hub import snapshot_download  # type: ignore[import-not-found]
 
     local_dir.mkdir(parents=True, exist_ok=True)
     snapshot_download(
