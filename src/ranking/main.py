@@ -3,7 +3,7 @@
 Reads the precomputed features, applies the vectorized scoring policy, sorts with
 the policy's tie-break, and writes the top-N rows as
 candidate_id,rank,score,reasoning. No candidate is dropped from scoring -- the
-top-N is simply the head of the full ranking, so honeypots and gated profiles
+top-N is simply the head of the full ranking, so penalised and gated profiles
 sink rather than disappear.
 
 Examples:
@@ -16,6 +16,7 @@ from pathlib import Path
 
 import polars as pl
 
+from src.models.integrity import IntegrityPolicy, load_integrity
 from src.models.tuning import Tuning
 from src.paths import TUNING_ARTIFACT_DIR, pool_artifact_dir
 from src.ranking.reasoning import compose_reasoning
@@ -46,9 +47,11 @@ def resolve_features(args: argparse.Namespace) -> tuple[str, Path]:
     raise ValueError("Provide --features, --pool, or --candidates.")
 
 
-def rank(frame: pl.DataFrame, tuning: Tuning, top_n: int) -> pl.DataFrame:
+def rank(
+    frame: pl.DataFrame, tuning: Tuning, integrity: IntegrityPolicy | None, top_n: int
+) -> pl.DataFrame:
     """Score and order the full frame; return it ranked (every candidate kept)."""
-    scored = score_frame(frame, tuning)
+    scored = score_frame(frame, tuning, integrity)
     # Primary order is score; the policy's tie-break resolves equal scores.
     ranked = scored.sort(
         [SCORE, CAREER_SUBSTANCE, "candidate_id"],
@@ -78,6 +81,7 @@ def main() -> None:
     args = parser.parse_args()
 
     tuning = load_tuning(Path(args.tuning) if args.tuning else None)
+    integrity = load_integrity()
     pool, features_path = resolve_features(args)
     if not features_path.is_file():
         raise FileNotFoundError(
@@ -86,7 +90,7 @@ def main() -> None:
         )
 
     frame = pl.read_parquet(features_path)
-    ranked = rank(frame, tuning, args.top)
+    ranked = rank(frame, tuning, integrity, args.top)
     submission = build_submission(ranked, args.top)
 
     out_path = Path(args.out) if args.out else pool_artifact_dir(pool) / "submission.csv"

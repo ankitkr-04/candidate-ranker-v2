@@ -9,6 +9,7 @@ complete the table. Every column is flat and typed for vectorized scoring.
 
 import polars as pl
 
+from src.models.integrity import IntegrityPolicy
 from src.models.tuning import Tuning
 
 # Produced during scoring rather than precomputed.
@@ -41,8 +42,20 @@ def categorical_columns(tuning: Tuning) -> list[str]:
     return list(tuning.features.categoricals.keys())
 
 
-def parquet_schema(tuning: Tuning) -> dict[str, pl.DataType]:
-    """Ordered column -> dtype mapping for the feature table."""
+def integrity_flag_columns(integrity: IntegrityPolicy | None) -> list[str]:
+    return list(integrity.features.flags) if integrity else []
+
+
+def integrity_metric_columns(integrity: IntegrityPolicy | None) -> list[str]:
+    return list(integrity.features.metrics) if integrity else []
+
+
+def parquet_schema(tuning: Tuning, integrity: IntegrityPolicy | None = None) -> dict[str, pl.DataType]:
+    """Ordered column -> dtype mapping for the feature table.
+
+    The integrity layer contributes its own flag/metric columns (job-agnostic plausibility
+    signals); they sit alongside the JD-derived columns but come from a separate config.
+    """
     string_dtype = pl.String()
     boolean_dtype = pl.Boolean()
     float_dtype = pl.Float64()
@@ -50,9 +63,13 @@ def parquet_schema(tuning: Tuning) -> dict[str, pl.DataType]:
     schema: dict[str, pl.DataType] = {"candidate_id": string_dtype}
     for flag in deterministic_flag_columns(tuning):
         schema[flag] = boolean_dtype
+    for flag in integrity_flag_columns(integrity):
+        schema[flag] = boolean_dtype
     for flag in slm_flag_columns(tuning):
         schema[flag] = boolean_dtype
     for metric in metric_columns(tuning):
+        schema[metric] = float_dtype
+    for metric in integrity_metric_columns(integrity):
         schema[metric] = float_dtype
     for categorical in categorical_columns(tuning):
         schema[categorical] = string_dtype

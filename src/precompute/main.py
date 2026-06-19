@@ -19,8 +19,10 @@ import polars as pl
 
 from src.features.build import build_feature_row
 from src.features.derive import FeatureDeriver
+from src.features.integrity import IntegrityDeriver
 from src.models.candidate import Candidate
 from src.models.features import parquet_schema
+from src.models.integrity import IntegrityPolicy, load_integrity
 from src.models.tuning import SlmQuestionSet, Tuning
 from src.paths import CANDIDATES_DIR, TUNING_ARTIFACT_DIR, pool_artifact_dir
 from src.precompute.slm_input import apply_slm_facts, existing_slm_facts
@@ -73,11 +75,14 @@ def reference_date(candidates: list[Candidate]) -> date:
     return max(dates) if dates else date.today()
 
 
-def build_feature_table(candidates: list[Candidate], tuning: Tuning) -> pl.DataFrame:
+def build_feature_table(
+    candidates: list[Candidate], tuning: Tuning, integrity: IntegrityPolicy | None = None
+) -> pl.DataFrame:
     deriver = FeatureDeriver(tuning)
+    integrity_deriver = IntegrityDeriver(integrity) if integrity is not None else None
     ref = reference_date(candidates)
-    rows = [build_feature_row(c, deriver, ref) for c in candidates]
-    return pl.DataFrame(rows, schema=parquet_schema(tuning))
+    rows = [build_feature_row(c, deriver, ref, integrity_deriver) for c in candidates]
+    return pl.DataFrame(rows, schema=parquet_schema(tuning, integrity))
 
 
 def load_questions() -> SlmQuestionSet:
@@ -89,7 +94,9 @@ def load_questions() -> SlmQuestionSet:
     return SlmQuestionSet.model_validate_json(path.read_text())
 
 
-def select_for_slm(table: pl.DataFrame, tuning: Tuning, slm_ceiling: float) -> set[str]:
+def select_for_slm(
+    table: pl.DataFrame, tuning: Tuning, slm_ceiling: float, integrity: IntegrityPolicy | None = None
+) -> set[str]:
     """candidate_ids whose best-possible (ceiling) score clears the threshold.
 
     Candidates below it cannot reach the top even with a perfect SLM result, so the
@@ -97,10 +104,11 @@ def select_for_slm(table: pl.DataFrame, tuning: Tuning, slm_ceiling: float) -> s
     remain in the table -- they are never removed.
 
     career_substance is the SLM-derived headroom; the ceiling assumes its best case
-    (1.0) so any stage gated on it counts toward the upper bound.
+    (1.0) so any stage gated on it counts toward the upper bound. Integrity penalties
+    are deterministic, so they tighten the ceiling here too.
     """
     ceilings = table.with_columns(pl.lit(1.0).alias("career_substance")).select(
-        "candidate_id", ceiling_expr(tuning).alias("ceiling")
+        "candidate_id", ceiling_expr(tuning, integrity).alias("ceiling")
     )
     return set(ceilings.filter(pl.col("ceiling") >= slm_ceiling)["candidate_id"].to_list())
 
@@ -117,6 +125,7 @@ def run_slm_stage(
     max_model_len: int,
     max_tokens: int,
     slm_ceiling: float,
+    integrity: IntegrityPolicy | None = None,
 ) -> pl.DataFrame:
     """Fill the SLM columns, reusing cached facts unless --force is set.
 
@@ -129,7 +138,7 @@ def run_slm_stage(
 
     questions = load_questions()
     cached = {} if force else existing_slm_facts(out_path, tuning)
-    selected = select_for_slm(table, tuning, slm_ceiling)
+    selected = select_for_slm(table, tuning, slm_ceiling, integrity)
     todo = [c for c in candidates if c.candidate_id in selected and c.candidate_id not in cached]
     print(
         f"SLM pre-filter: {len(selected)}/{len(candidates)} selected "
@@ -169,10 +178,11 @@ def main() -> None:
     args = parser.parse_args()
 
     tuning = load_tuning()
+    integrity = load_integrity()
     pool, candidates_path = resolve_pool(args.pool, args.candidates)
     candidates = load_candidates(candidates_path, args.limit)
 
-    table = build_feature_table(candidates, tuning)
+    table = build_feature_table(candidates, tuning, integrity)
     out_path = Path(args.out) if args.out else pool_artifact_dir(pool) / "features.parquet"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -190,7 +200,7 @@ def main() -> None:
             table, candidates, tuning, out_path,
             force=args.force, batch_size=args.batch_size, dtype=args.dtype,
             max_model_len=args.max_model_len, max_tokens=args.max_tokens,
-            slm_ceiling=args.slm_ceiling,
+            slm_ceiling=args.slm_ceiling, integrity=integrity,
         )
 
     table.write_parquet(out_path)

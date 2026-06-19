@@ -1,0 +1,120 @@
+{
+  "version": "1.0",
+  "description": "Job-agnostic profile-integrity penalties. Each flags data that is implausible for any genuine candidate (inconsistent dates, a skill used longer than the person has worked or longer than the tool has existed, a senior title dated before the first degree finished). Applied as small multiplicative penalties that compound into a ranking gradient -- no single hard cut.",
+  "tool_eras": {
+    "prompt engineering": 2020,
+    "rag": 2020,
+    "langchain": 2022,
+    "llamaindex": 2022,
+    "chatgpt": 2022,
+    "llms": 2019,
+    "llm fine-tuning": 2021,
+    "lora": 2021,
+    "qlora": 2023,
+    "peft": 2022,
+    "vector database": 2019,
+    "vector search": 2019,
+    "weaviate": 2019,
+    "pinecone": 2019,
+    "qdrant": 2021,
+    "milvus": 2019,
+    "sentence transformers": 2019,
+    "semantic search": 2019
+  },
+  "params": {
+    "overrun_slack_months": 18.0,
+    "seniority_min_rank": 3
+  },
+  "features": {
+    "flags": [
+      "end_before_start",
+      "career_months_overrun",
+      "role_months_overrun",
+      "current_role_date_conflict",
+      "senior_title_pre_graduation"
+    ],
+    "metrics": [
+      "num_education_overlaps",
+      "num_skill_anomalies",
+      "num_skill_anachronisms"
+    ]
+  },
+  "penalties": [
+    {
+      "id": "end_before_start_penalty",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": { "flag": "end_before_start" },
+          "value": 0.4
+        }
+      ]
+    },
+    {
+      "id": "career_months_overrun_penalty",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": { "flag": "career_months_overrun" },
+          "value": 0.9
+        }
+      ]
+    },
+    {
+      "id": "role_months_overrun_penalty",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": { "flag": "role_months_overrun" },
+          "value": 0.85
+        }
+      ]
+    },
+    {
+      "id": "current_role_date_conflict_penalty",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": { "flag": "current_role_date_conflict" },
+          "value": 0.85
+        }
+      ]
+    },
+    {
+      "id": "education_overlap_penalty",
+      "type": "decay",
+      "feature": "num_education_overlaps",
+      "base": 0.98,
+      "floor": 0.92
+    },
+    {
+      "id": "skill_anomaly_penalty",
+      "type": "decay",
+      "feature": "num_skill_anomalies",
+      "base": 0.985,
+      "floor": 0.93
+    },
+    {
+      "id": "skill_anachronism_penalty",
+      "type": "decay",
+      "feature": "num_skill_anachronisms",
+      "base": 0.92,
+      "floor": 0.6
+    },
+    {
+      "id": "seniority_before_graduation_penalty",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": { "flag": "senior_title_pre_graduation" },
+          "value": 0.85
+        }
+      ]
+    }
+  ]
+}

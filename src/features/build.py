@@ -8,13 +8,11 @@ outputs are left null and filled later by the precompute SLM stage.
 from datetime import date
 
 from src.features.derive import FeatureDeriver
+from src.features.integrity import IntegrityDeriver
 from src.features.metrics import (
     current_role_duration_months,
-    honeypot_flags,
     last_active_days,
     median_tenure_last_3_months,
-    num_education_overlaps,
-    num_skill_anomalies,
 )
 from src.models.candidate import Candidate
 
@@ -23,6 +21,7 @@ def build_feature_row(
     candidate: Candidate,
     deriver: FeatureDeriver,
     reference_date: date,
+    integrity_deriver: IntegrityDeriver | None = None,
 ) -> dict:
     signals = candidate.redrob_signals
     row: dict[str, object] = {"candidate_id": candidate.candidate_id}
@@ -40,7 +39,10 @@ def build_feature_row(
             "recent_nonml_pivot": deriver.recent_nonml_pivot(candidate),
         }
     )
-    row.update(honeypot_flags(candidate))
+
+    # Job-agnostic plausibility signals (date consistency, education/skill anomalies).
+    if integrity_deriver is not None:
+        row.update(integrity_deriver.compute(candidate, reference_date))
 
     # SLM flags are unknown until the model runs; left null for uncertain handling.
     for flag in deriver.slm_flag_names:
@@ -58,8 +60,6 @@ def build_feature_row(
             "saved_by_recruiters_30d": float(signals.saved_by_recruiters_30d),
             "applications_submitted_30d": float(signals.applications_submitted_30d),
             "notice_period_days": float(signals.notice_period_days),
-            "num_education_overlaps": num_education_overlaps(candidate),
-            "num_skill_anomalies": num_skill_anomalies(candidate),
             "github_activity_score": signals.github_activity_score,
             "num_qualifying_unevidenced_skills": deriver.num_qualifying_unevidenced_skills(candidate),
         }

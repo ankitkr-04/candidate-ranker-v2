@@ -44,6 +44,21 @@ _LOCATION_CONCERNS = {
     "outside_relocating": "based outside India",
 }
 
+# Job-agnostic data-quality penalties (features/integrity.py). Flag-valued first, then
+# count-valued; phrased so the reasoning names the specific implausibility, not a label.
+INTEGRITY_FLAG_CONCERNS = {
+    "end_before_start": "a role's end date precedes its start date",
+    "career_months_overrun": "total role tenure exceeds the stated experience",
+    "role_months_overrun": "a single role exceeds the stated experience",
+    "current_role_date_conflict": "inconsistent current-role dates",
+    "senior_title_pre_graduation": "a senior title dated before the first degree finished",
+}
+INTEGRITY_COUNT_CONCERNS = {
+    "num_skill_anachronisms": "claims a skill predating the technology",
+    "num_education_overlaps": "overlapping education dates",
+    "num_skill_anomalies": "a skill claimed for longer than the stated experience",
+}
+
 
 def _is_true(row: dict, flag: str) -> bool:
     return row.get(flag) is True
@@ -77,8 +92,12 @@ def compose_reasoning(row: dict) -> str:
     notice = row.get("notice_period_days") or 0
     if notice >= 90:
         concerns.append(f"long notice period ({int(notice)} days)")
-    if row.get("honeypot"):
-        concerns.append("profile has internal inconsistencies")
+    for flag, phrase in INTEGRITY_FLAG_CONCERNS.items():
+        if _is_true(row, flag):
+            concerns.append(phrase)
+    for metric, phrase in INTEGRITY_COUNT_CONCERNS.items():
+        if (row.get(metric) or 0) > 0:
+            concerns.append(phrase)
 
     parts = [lead + "."]
     if strengths:

@@ -12,7 +12,6 @@ from src.models.policy import (
     CareerSubstance,
     Features,
     HardGate,
-    HoneypotExclusion,
     Lookups,
     Multiplier,
     Policy,
@@ -30,7 +29,6 @@ class Tuning(BaseModel):
     job_id: str
     scoring: Scoring
     features: Features
-    honeypot_exclusion: HoneypotExclusion
     career_substance: CareerSubstance
     skill_booster: SkillBooster
     multipliers: list[Multiplier]
@@ -44,7 +42,6 @@ class Tuning(BaseModel):
             job_id=policy.job_id,
             scoring=policy.scoring,
             features=policy.features,
-            honeypot_exclusion=policy.honeypot_exclusion,
             career_substance=policy.career_substance,
             skill_booster=policy.skill_booster,
             multipliers=policy.multipliers,

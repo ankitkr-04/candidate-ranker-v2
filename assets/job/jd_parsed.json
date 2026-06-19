@@ -10,7 +10,7 @@
       "decay": "value = max(floor, base ** feature)",
       "composite_product": "product of member stages, then clamp"
     },
-    "pipeline": "score = clamp(career_substance + skill_booster,0,1); for s in multipliers: score*=eval(s); for g in hard_gates: if eval(g.when): score*=g.multiplier; honeypot true -> score=0"
+    "pipeline": "score = clamp(career_substance + skill_booster,0,1); for s in multipliers: score*=eval(s); for g in hard_gates: if eval(g.when): score*=g.multiplier. Job-agnostic data-quality penalties are applied separately by the integrity layer."
   },
   "scoring": {
     "uncertain_treatment": {
@@ -67,11 +67,7 @@
         "is_local": "normalized location in lookups.location.local_cities",
         "prefers_remote": "redrob_signals.preferred_work_mode == 'remote'",
         "open_to_work_flag": "redrob_signals.open_to_work_flag",
-        "recent_nonml_pivot": "current_title in (zero_always | neutral_read_description) AND an earlier title in career_ml_credit.full",
-        "hp_end_before_start": "any role end_date < start_date",
-        "hp_career_overrun": "sum(duration_months) > years_of_experience*12 + 18",
-        "hp_role_overrun": "max(duration_months) > years_of_experience*12 + 18",
-        "hp_flag_conflict": "(is_current=false AND end_date=null) OR (is_current=true AND end_date!=null)"
+        "recent_nonml_pivot": "current_title in (zero_always | neutral_read_description) AND an earlier title in career_ml_credit.full"
       }
     },
     "metrics": {
@@ -85,8 +81,6 @@
       "saved_by_recruiters_30d": "redrob_signals.saved_by_recruiters_30d",
       "applications_submitted_30d": "redrob_signals.applications_submitted_30d",
       "notice_period_days": "redrob_signals.notice_period_days",
-      "num_education_overlaps": "count of year-overlapping education pairs",
-      "num_skill_anomalies": "count of skills with duration_months > years_of_experience*12 or > tool age",
       "github_activity_score": "redrob_signals.github_activity_score",
       "career_substance": "computed by the career_substance block (available to later stages)",
       "num_qualifying_unevidenced_skills": "count of skill_booster.qualifying skills whose competence flag is not already true"
@@ -124,25 +118,6 @@
         ]
       }
     }
-  },
-  "honeypot_exclusion": {
-    "when": {
-      "any": [
-        {
-          "flag": "hp_end_before_start"
-        },
-        {
-          "flag": "hp_career_overrun"
-        },
-        {
-          "flag": "hp_role_overrun"
-        },
-        {
-          "flag": "hp_flag_conflict"
-        }
-      ]
-    },
-    "action": "score=0"
   },
   "career_substance": {
     "additive": {
@@ -604,20 +579,6 @@
           "value": 0.33
         }
       ]
-    },
-    {
-      "id": "education_overlap_penalty",
-      "type": "decay",
-      "feature": "num_education_overlaps",
-      "base": 0.98,
-      "floor": 0.92
-    },
-    {
-      "id": "skill_anomaly_penalty",
-      "type": "decay",
-      "feature": "num_skill_anomalies",
-      "base": 0.985,
-      "floor": 0.93
     },
     {
       "id": "github_bonus",

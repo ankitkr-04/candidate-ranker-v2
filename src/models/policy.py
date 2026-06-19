@@ -156,13 +156,6 @@ class SkillBooster(BaseModel):
     disqualified: list[str] = Field(default_factory=list)
 
 
-class HoneypotExclusion(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    when: "Predicate"
-    action: str
-
-
 class HardGate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -288,7 +281,8 @@ class Policy(BaseModel):
     evaluator_contract: EvaluatorContract
     scoring: Scoring
     features: Features
-    honeypot_exclusion: HoneypotExclusion
+    # Plausibility/data-quality rules (date-consistency checks, anomaly penalties) are
+    # job-agnostic and live in the separate integrity penalty layer, not the JD.
     career_substance: CareerSubstance
     skill_booster: SkillBooster
     multipliers: list[Multiplier]
@@ -299,5 +293,5 @@ class Policy(BaseModel):
 
 # Resolve forward references for the recursive Predicate / Multiplier types.
 for _model in (NotNode, AllNode, AnyNode, Case, CompositeProduct, Gate, SkillBooster,
-               HoneypotExclusion, HardGate):
+               HardGate):
     _model.model_rebuild()

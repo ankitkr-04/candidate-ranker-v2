@@ -15,10 +15,12 @@ CANDIDATES_DIR = ASSETS_DIR / "candidates"
 JOB_DIR = ASSETS_DIR / "job"
 SCHEMA_DIR = ASSETS_DIR / "schema"
 TUNING_DIR = ASSETS_DIR / "tuning"
+INTEGRITY_SOURCE = ASSETS_DIR / "integrity" / "penalties.json"
 MODEL_DIR = ASSETS_DIR / "model" / "Qwen3-4B-Instruct-2507"
 
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 TUNING_ARTIFACT_DIR = ARTIFACTS_DIR / "tuning"
+INTEGRITY_ARTIFACT = TUNING_ARTIFACT_DIR / "integrity.json"
 
 
 def pool_artifact_dir(pool: str) -> Path:

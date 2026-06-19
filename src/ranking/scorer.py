@@ -5,16 +5,18 @@ The pipeline mirrors the policy's evaluator contract:
     career_substance = clamp(sum(additive flags) * product(internal gates))
     skill_booster    = bonus when career_substance is high enough
     base_score       = clamp(career_substance + skill_booster, 0, 1)
-    score            = base_score * product(multiplier stages) * product(hard gates)
-    score            = 0 when a honeypot condition fires
+    score            = base_score * product(multiplier stages)
+                                  * product(integrity penalties) * product(hard gates)
 
-Every stage is expressed over columns, so scoring the whole pool is a single
-vectorized pass. Each multiplier stage and gate is also kept as its own column so
-the ranker can explain a score and emit a debug breakdown.
+Integrity penalties are job-agnostic, small multiplicative data-quality factors that
+compound: a genuine profile trips none, an implausible one trips several and slides down.
+Every stage is expressed over columns, so scoring the whole pool is a single vectorized
+pass. Each stage, penalty, and gate is kept as its own column for breakdown/debug.
 """
 
 import polars as pl
 
+from src.models.integrity import IntegrityPolicy
 from src.models.policy import (
     CompositeProduct,
     Conditional,
@@ -28,7 +30,6 @@ from src.ranking.predicate import compile_predicate
 CAREER_SUBSTANCE = "career_substance"
 SKILL_BOOSTER = "skill_booster"
 BASE_SCORE = "base_score"
-HONEYPOT = "honeypot"
 SCORE = "score"
 
 
@@ -123,15 +124,15 @@ def _flag_columns(tuning: Tuning) -> list[str]:
     return list(tuning.features.flags.deterministic.keys()) + list(tuning.features.flags.slm)
 
 
-def ceiling_expr(tuning: Tuning) -> pl.Expr:
+def ceiling_expr(tuning: Tuning, integrity: IntegrityPolicy | None = None) -> pl.Expr:
     """Best-possible score for a candidate given only deterministic features.
 
-    The multiplier stages and hard gates depend on deterministic columns, so the
-    only headroom is base_score (career_substance + skill_booster), which a perfect
-    SLM result maxes at 1.0. Holding base_score and the gates at 1.0 (their
-    no-penalty value) gives an upper bound on the achievable score: the multipliers
-    contribute their actual deterministic value, and a honeypot still forces 0.
-    Pre-filtering on this never drops a candidate who could place.
+    The multiplier stages, integrity penalties, and hard gates all depend on
+    deterministic columns, so the only headroom is base_score (career_substance +
+    skill_booster), which a perfect SLM result maxes at 1.0. Holding base_score and
+    the gates at 1.0 (their no-penalty value) gives an upper bound on the achievable
+    score: the multipliers and integrity penalties contribute their actual
+    deterministic value. Pre-filtering on this never drops a candidate who could place.
 
     One stage (github_bonus) gates on career_substance, which the scorer computes
     rather than stores. The caller must provide a best-case `career_substance`
@@ -140,10 +141,15 @@ def ceiling_expr(tuning: Tuning) -> pl.Expr:
     ceiling = pl.lit(1.0)
     for stage in tuning.multipliers:
         ceiling = ceiling * _stage_expr(stage)
-    return pl.when(compile_predicate(tuning.honeypot_exclusion.when)).then(pl.lit(0.0)).otherwise(ceiling)
+    if integrity is not None:
+        for stage in integrity.penalties:
+            ceiling = ceiling * _stage_expr(stage)
+    return ceiling
 
 
-def score_frame(frame: pl.DataFrame, tuning: Tuning) -> pl.DataFrame:
+def score_frame(
+    frame: pl.DataFrame, tuning: Tuning, integrity: IntegrityPolicy | None = None
+) -> pl.DataFrame:
     """Return the frame with career_substance, per-stage, and final score columns."""
     # Uncertain handling: an undetermined flag contributes nothing and fires no
     # disqualifier, which for a boolean column means False.
@@ -171,6 +177,14 @@ def score_frame(frame: pl.DataFrame, tuning: Tuning) -> pl.DataFrame:
         frame = frame.with_columns(_stage_expr(stage).alias(name))
         stage_columns.append(name)
 
+    # Job-agnostic integrity penalties: ordinary multiplier stages that compound.
+    penalty_columns: list[str] = []
+    if integrity is not None:
+        for stage in integrity.penalties:
+            name = _multiplier_prefix(stage.id or stage.type)
+            frame = frame.with_columns(_stage_expr(stage).alias(name))
+            penalty_columns.append(name)
+
     gate_columns: list[str] = []
     for gate in tuning.hard_gates:
         name = _gate_prefix(gate.id or "gate")
@@ -179,10 +193,7 @@ def score_frame(frame: pl.DataFrame, tuning: Tuning) -> pl.DataFrame:
         )
         gate_columns.append(name)
 
-    frame = frame.with_columns(compile_predicate(tuning.honeypot_exclusion.when).alias(HONEYPOT))
-
     score = pl.col(BASE_SCORE)
-    for name in stage_columns + gate_columns:
+    for name in stage_columns + penalty_columns + gate_columns:
         score = score * pl.col(name)
-    score = pl.when(pl.col(HONEYPOT)).then(pl.lit(0.0)).otherwise(score)
     return frame.with_columns(score.alias(SCORE))
