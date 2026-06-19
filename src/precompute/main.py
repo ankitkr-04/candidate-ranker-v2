@@ -21,8 +21,9 @@ from src.features.build import build_feature_row
 from src.features.derive import FeatureDeriver
 from src.models.candidate import Candidate
 from src.models.features import parquet_schema
-from src.models.tuning import Tuning
+from src.models.tuning import SlmQuestionSet, Tuning
 from src.paths import CANDIDATES_DIR, TUNING_ARTIFACT_DIR, pool_artifact_dir
+from src.precompute.slm_input import apply_slm_facts, existing_slm_facts
 
 
 def load_tuning() -> Tuning:
@@ -78,6 +79,34 @@ def build_feature_table(candidates: list[Candidate], tuning: Tuning) -> pl.DataF
     return pl.DataFrame(rows, schema=parquet_schema(tuning))
 
 
+def load_questions() -> SlmQuestionSet:
+    path = TUNING_ARTIFACT_DIR / "slm_questions.json"
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"{path} not found. Run `python -m src.jd_parser.parse` first."
+        )
+    return SlmQuestionSet.model_validate_json(path.read_text())
+
+
+def run_slm_stage(
+    table: pl.DataFrame,
+    candidates: list[Candidate],
+    tuning: Tuning,
+    out_path: Path,
+    *,
+    force: bool,
+) -> pl.DataFrame:
+    """Fill the SLM columns, reusing cached facts unless --force is set."""
+    from src.precompute.runner import run_slm  # GPU-only dependency, imported lazily.
+
+    questions = load_questions()
+    cached = {} if force else existing_slm_facts(out_path, tuning)
+    todo = [c for c in candidates if c.candidate_id not in cached]
+    print(f"SLM: {len(cached)} cached, {len(todo)} to compute")
+    new_facts = run_slm(todo, questions, tuning)
+    return apply_slm_facts(table, list(cached.values()) + new_facts, tuning)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build the per-pool feature table.")
     parser.add_argument("--pool", help="Pool name, e.g. sample / 1k / 100k.")
@@ -93,13 +122,14 @@ def main() -> None:
     candidates = load_candidates(candidates_path, args.limit)
 
     table = build_feature_table(candidates, tuning)
-
     out_path = Path(args.out) if args.out else pool_artifact_dir(pool) / "features.parquet"
     out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not args.no_slm:
+        table = run_slm_stage(table, candidates, tuning, out_path, force=args.force)
+
     table.write_parquet(out_path)
     print(f"Wrote {table.height} rows x {table.width} cols to {out_path}")
-    if not args.no_slm:
-        print("Note: SLM stage not yet wired in; SLM flag columns are null. Use --no-slm to silence.")
 
 
 if __name__ == "__main__":
