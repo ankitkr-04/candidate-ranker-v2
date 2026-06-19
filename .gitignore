@@ -9,6 +9,9 @@ ENV/
 data/
 artifacts/
 
+#SLM Model
+assets/model/
+
 # Jupyter Notebooks
 .ipynb_checkpoints/
 
