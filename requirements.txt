@@ -1,0 +1,6 @@
+# Ranking stage and shared dependencies (CPU-only, Python 3.12, no network at runtime).
+# Installed in the ranking environment (.venv); also inherited by the precompute
+# environment, which adds requirements-gpu.txt on top.
+pydantic>=2
+orjson>=3.10
+polars>=1

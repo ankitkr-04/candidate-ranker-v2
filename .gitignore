@@ -1,5 +1,6 @@
 # Environments
 .venv/
+.venv-gpu/
 env/
 venv/
 ENV/
