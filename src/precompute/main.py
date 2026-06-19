@@ -97,6 +97,8 @@ def run_slm_stage(
     force: bool,
     batch_size: int,
     dtype: str,
+    max_model_len: int,
+    max_tokens: int,
 ) -> pl.DataFrame:
     """Fill the SLM columns, reusing cached facts unless --force is set.
 
@@ -114,7 +116,7 @@ def run_slm_stage(
     if not todo:
         return apply_slm_facts(table, facts, tuning)
 
-    runner = SlmRunner(questions, tuning, dtype=dtype)
+    runner = SlmRunner(questions, tuning, dtype=dtype, max_model_len=max_model_len, max_tokens=max_tokens)
     for start in range(0, len(todo), batch_size):
         facts.extend(runner.generate(todo[start : start + batch_size]))
         apply_slm_facts(table, facts, tuning).write_parquet(out_path)
@@ -132,6 +134,8 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="Recompute SLM facts for all candidates.")
     parser.add_argument("--batch-size", type=int, default=1000, help="SLM candidates scored per checkpoint.")
     parser.add_argument("--dtype", default="auto", help="vLLM dtype; use 'half' on GPUs without bf16 (e.g. T4).")
+    parser.add_argument("--max-model-len", type=int, default=4096, help="vLLM max sequence length; lower raises concurrency.")
+    parser.add_argument("--max-tokens", type=int, default=512, help="Max new tokens generated per candidate.")
     args = parser.parse_args()
 
     tuning = load_tuning()
@@ -146,6 +150,7 @@ def main() -> None:
         table = run_slm_stage(
             table, candidates, tuning, out_path,
             force=args.force, batch_size=args.batch_size, dtype=args.dtype,
+            max_model_len=args.max_model_len, max_tokens=args.max_tokens,
         )
 
     table.write_parquet(out_path)

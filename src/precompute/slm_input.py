@@ -37,8 +37,8 @@ def career_history_text(candidate: Candidate) -> str:
 def build_schema(questions: SlmQuestions) -> dict:
     """JSON schema for guided decoding; property order fixes the emission order."""
     properties: dict[str, dict] = {
-        _SUBJECT: {"type": "string"},
-        _EVIDENCE: {"type": "string"},
+        _SUBJECT: {"type": "string", "maxLength": 160},
+        _EVIDENCE: {"type": "string", "maxLength": 200},
     }
     for question in questions.ask:
         if question.id in (_SUBJECT, _EVIDENCE):
@@ -57,17 +57,18 @@ def build_messages(candidate: Candidate, questions: SlmQuestions) -> list[dict]:
         f"- {q.id}: {q.q}" for q in questions.ask if q.id not in (_SUBJECT, _EVIDENCE)
     ]
     subject_q = next((q.q for q in questions.ask if q.id == _SUBJECT), "")
+    # Instructions and the question set are identical for every candidate, so they go in the
+    # system message: vLLM prefix-caching computes this large block once and reuses it across
+    # the pool, leaving only the short career history to prefill per candidate.
     system = (
-        "You screen candidates for a senior AI/ML engineering role. Judge strictly "
-        "from the candidate's career history below. Do not assume facts that are not "
-        "stated; when the history does not support a claim, answer false."
-    )
-    user = (
-        f"Career history:\n{career_history_text(candidate)}\n\n"
+        "You screen candidates for a senior AI/ML engineering role. Judge strictly from the "
+        "candidate's career history. Do not assume facts that are not stated; when the history "
+        "does not support a claim, answer false.\n\n"
         f"First, {_SUBJECT}: {subject_q}\n"
-        f"Then give a one-line evidence span quoting the phrase you relied on.\n"
-        f"Then answer each question true or false:\n" + "\n".join(boolean_questions)
+        "Then give a one-line evidence span quoting the phrase you relied on.\n"
+        "Then answer each question true or false:\n" + "\n".join(boolean_questions)
     )
+    user = f"Career history:\n{career_history_text(candidate)}"
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user},

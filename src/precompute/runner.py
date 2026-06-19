@@ -54,10 +54,11 @@ class SlmRunner:
         tuning,
         *,
         model_dir=None,
-        max_model_len: int = 8192,
-        max_tokens: int = 640,
+        max_model_len: int = 4096,
+        max_tokens: int = 512,
         dtype: str = "auto",
         gpu_memory_utilization: float = 0.90,
+
     ) -> None:
         from vllm import LLM, SamplingParams  # type: ignore[import-not-found]
         from vllm.sampling_params import GuidedDecodingParams  # type: ignore[import-not-found]
@@ -68,6 +69,7 @@ class SlmRunner:
             max_model_len=max_model_len,
             dtype=dtype,
             gpu_memory_utilization=gpu_memory_utilization,
+            enable_prefix_caching=True,
         )
         self._sampling = SamplingParams(
             temperature=0.0,
