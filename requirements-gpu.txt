@@ -1,6 +1,13 @@
-# Precompute stage only (GPU + network). Install on top of the base requirements:
-#   pip install -r requirements.txt -r requirements-gpu.txt
-# These wheels assume a CUDA GPU and are not installable on a CPU-only machine.
-vllm>=0.6
+# Precompute stage only (GPU + network). Not installable on a CPU-only machine.
+#
+# vLLM must match the GPU driver's CUDA version. The default PyPI wheel is now a
+# CUDA-13 build; on a CUDA-12 GPU such as the Tesla T4 it fails to load with
+# "libcudart.so.13: cannot open shared object file". Install vLLM with a matching
+# CUDA backend (uv inspects the driver), not plain pip:
+#   pip install uv
+#   uv pip install vllm --torch-backend=auto
+# Then the rest of the deps:
+#   pip install -r requirements.txt transformers "huggingface_hub[hf_transfer]"
+vllm>=0.6              # install via: uv pip install vllm --torch-backend=auto
 transformers>=4.44
 huggingface_hub[hf_transfer]>=0.24
