@@ -95,16 +95,31 @@ def run_slm_stage(
     out_path: Path,
     *,
     force: bool,
+    batch_size: int,
+    dtype: str,
 ) -> pl.DataFrame:
-    """Fill the SLM columns, reusing cached facts unless --force is set."""
-    from src.precompute.runner import run_slm  # GPU-only dependency, imported lazily.
+    """Fill the SLM columns, reusing cached facts unless --force is set.
+
+    Facts are written to the parquet after every batch so a long run (e.g. 100k on
+    a single GPU) survives an interruption and resumes from the cache on re-run.
+    """
+    from src.precompute.runner import SlmRunner  # GPU-only dependency, imported lazily.
 
     questions = load_questions()
     cached = {} if force else existing_slm_facts(out_path, tuning)
     todo = [c for c in candidates if c.candidate_id not in cached]
     print(f"SLM: {len(cached)} cached, {len(todo)} to compute")
-    new_facts = run_slm(todo, questions, tuning)
-    return apply_slm_facts(table, list(cached.values()) + new_facts, tuning)
+
+    facts = list(cached.values())
+    if not todo:
+        return apply_slm_facts(table, facts, tuning)
+
+    runner = SlmRunner(questions, tuning, dtype=dtype)
+    for start in range(0, len(todo), batch_size):
+        facts.extend(runner.generate(todo[start : start + batch_size]))
+        apply_slm_facts(table, facts, tuning).write_parquet(out_path)
+        print(f"  SLM checkpoint: {min(start + batch_size, len(todo))}/{len(todo)} -> {out_path}")
+    return apply_slm_facts(table, facts, tuning)
 
 
 def main() -> None:
@@ -115,6 +130,8 @@ def main() -> None:
     parser.add_argument("--limit", type=int, help="Process only the first N candidates (smoke test).")
     parser.add_argument("--no-slm", action="store_true", help="Skip the SLM stage (deterministic features only).")
     parser.add_argument("--force", action="store_true", help="Recompute SLM facts for all candidates.")
+    parser.add_argument("--batch-size", type=int, default=1000, help="SLM candidates scored per checkpoint.")
+    parser.add_argument("--dtype", default="auto", help="vLLM dtype; use 'half' on GPUs without bf16 (e.g. T4).")
     args = parser.parse_args()
 
     tuning = load_tuning()
@@ -126,7 +143,10 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not args.no_slm:
-        table = run_slm_stage(table, candidates, tuning, out_path, force=args.force)
+        table = run_slm_stage(
+            table, candidates, tuning, out_path,
+            force=args.force, batch_size=args.batch_size, dtype=args.dtype,
+        )
 
     table.write_parquet(out_path)
     print(f"Wrote {table.height} rows x {table.width} cols to {out_path}")
