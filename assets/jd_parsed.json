@@ -1,0 +1,1098 @@
+{
+  "policy_version": "4.0",
+  "job_id": "redrob_senior_ai_engineer_founding",
+  "evaluator_contract": {
+    "predicate": "leaf {flag:name} | {flag:name,negate} via {not:{flag}} | {metric:name,op:'<|<=|>|>=|==|!=',value:X} ; node {all:[...]} | {any:[...]} | {not:pred}",
+    "multiplier_stage_types": {
+      "lookup": "value = map[feature] else default",
+      "curve": "bands sorted by 'at'; direction 'min' picks first band where feature>=at; 'max' picks first where feature<=at; at=null is default",
+      "conditional": "first case whose 'when' predicate is true -> value; else default",
+      "decay": "value = max(floor, base ** feature)",
+      "composite_product": "product of member stages, then clamp"
+    },
+    "pipeline": "score = clamp(career_substance + skill_booster,0,1); for s in multipliers: score*=eval(s); for g in hard_gates: if eval(g.when): score*=g.multiplier; honeypot true -> score=0"
+  },
+  "scoring": {
+    "uncertain_treatment": {
+      "positive_flag_cannot_determine": "false",
+      "disqualifier_flag_cannot_determine": "do_not_fire"
+    },
+    "tie_break": [
+      "career_substance desc",
+      "candidate_id asc"
+    ]
+  },
+  "features": {
+    "flags": {
+      "slm": [
+        "owns_retrieval_prod",
+        "vector_db_prod",
+        "owns_eval_framework",
+        "strong_python_prod",
+        "retrieval_ops_depth",
+        "owns_ranking_prod",
+        "shipped_endtoend_at_scale",
+        "ltr_experience",
+        "reranker_twostage",
+        "relevance_judgment_pipeline",
+        "realtime_ml_serving",
+        "llm_finetuning",
+        "ab_testing_ml",
+        "distributed_systems_scale",
+        "hrtech_or_marketplace_exp",
+        "prod_ml_ops",
+        "external_validation",
+        "first_person_ownership",
+        "primarily_adjacent",
+        "observer_not_owner",
+        "manager_not_builder",
+        "cv_dominant",
+        "speech_dominant",
+        "robotics_dominant",
+        "nlp_ir_significant",
+        "research_not_applied",
+        "ic_role",
+        "no_prod_code_recent",
+        "llm_api_wrapper_only",
+        "recent_llm_only_lt12mo",
+        "pre_llm_ml_production",
+        "is_hobbyist_or_self_learner"
+      ],
+      "deterministic": {
+        "current_is_services": "current_company in lookups.company.it_services",
+        "majority_career_services": "duration-weighted fraction of career at it_services companies > 0.5",
+        "has_product_company": "any career company in lookups.company.product_set",
+        "has_ai_native": "any career company in lookups.company.ai_native",
+        "titles_escalating": "seniority rank strictly increasing across last 3 employers",
+        "is_local": "normalized location in lookups.location.local_cities",
+        "prefers_remote": "redrob_signals.preferred_work_mode == 'remote'",
+        "open_to_work_flag": "redrob_signals.open_to_work_flag",
+        "recent_nonml_pivot": "current_title in (zero_always | neutral_read_description) AND an earlier title in career_ml_credit.full",
+        "hp_end_before_start": "any role end_date < start_date",
+        "hp_career_overrun": "sum(duration_months) > years_of_experience*12 + 18",
+        "hp_role_overrun": "max(duration_months) > years_of_experience*12 + 18",
+        "hp_flag_conflict": "(is_current=false AND end_date=null) OR (is_current=true AND end_date!=null)"
+      }
+    },
+    "metrics": {
+      "years_of_experience": "profile.years_of_experience",
+      "applied_ml_years": "min(years_of_experience, sum(role.duration_months/12 * career_ml_credit.factor(role.title)))  [deterministic; no SLM lift]",
+      "median_tenure_last_3_months": "median duration_months of last 3 employers",
+      "current_role_duration_months": "duration_months of is_current role",
+      "last_active_days": "reference_date - redrob_signals.last_active_date, in days",
+      "recruiter_response_rate": "redrob_signals.recruiter_response_rate",
+      "interview_completion_rate": "redrob_signals.interview_completion_rate",
+      "saved_by_recruiters_30d": "redrob_signals.saved_by_recruiters_30d",
+      "applications_submitted_30d": "redrob_signals.applications_submitted_30d",
+      "notice_period_days": "redrob_signals.notice_period_days",
+      "num_education_overlaps": "count of year-overlapping education pairs",
+      "num_skill_anomalies": "count of skills with duration_months > years_of_experience*12 or > tool age",
+      "github_activity_score": "redrob_signals.github_activity_score",
+      "career_substance": "computed by the career_substance block (available to later stages)",
+      "num_qualifying_unevidenced_skills": "count of skill_booster.qualifying skills whose competence flag is not already true"
+    },
+    "categoricals": {
+      "location_relocation_bucket": {
+        "derive": "from normalized location + country + willing_to_relocate",
+        "values": [
+          "local",
+          "tier1_relocating",
+          "tier1_not_relocating",
+          "other_india_relocating",
+          "other_india_not_relocating",
+          "outside_relocating",
+          "outside_not_relocating"
+        ]
+      },
+      "current_title_bucket": {
+        "derive": "current_title matched against lookups.title.current_title_buckets",
+        "values": [
+          "hard_sink",
+          "heavy_penalty",
+          "neutral_read_description",
+          "moderate_positive",
+          "strong_positive",
+          "ideal"
+        ]
+      },
+      "verification_state": {
+        "derive": "verified_email + verified_phone",
+        "values": [
+          "both",
+          "one",
+          "neither"
+        ]
+      }
+    }
+  },
+  "honeypot_exclusion": {
+    "when": {
+      "any": [
+        {
+          "flag": "hp_end_before_start"
+        },
+        {
+          "flag": "hp_career_overrun"
+        },
+        {
+          "flag": "hp_role_overrun"
+        },
+        {
+          "flag": "hp_flag_conflict"
+        }
+      ]
+    },
+    "action": "score=0"
+  },
+  "career_substance": {
+    "additive": {
+      "owns_retrieval_prod": 0.28,
+      "owns_eval_framework": 0.2,
+      "owns_ranking_prod": 0.16,
+      "vector_db_prod": 0.12,
+      "shipped_endtoend_at_scale": 0.1,
+      "retrieval_ops_depth": 0.08,
+      "ltr_experience": 0.06,
+      "reranker_twostage": 0.05,
+      "relevance_judgment_pipeline": 0.05,
+      "realtime_ml_serving": 0.04,
+      "llm_finetuning": 0.04,
+      "strong_python_prod": 0.04,
+      "prod_ml_ops": 0.04,
+      "ab_testing_ml": 0.03,
+      "distributed_systems_scale": 0.03,
+      "hrtech_or_marketplace_exp": 0.03,
+      "external_validation": 0.02
+    },
+    "gates": [
+      {
+        "when": {
+          "flag": "primarily_adjacent"
+        },
+        "multiplier": 0.55
+      },
+      {
+        "when": {
+          "flag": "observer_not_owner"
+        },
+        "multiplier": 0.65
+      },
+      {
+        "when": {
+          "flag": "manager_not_builder"
+        },
+        "multiplier": 0.35
+      },
+      {
+        "when": {
+          "flag": "is_hobbyist_or_self_learner"
+        },
+        "multiplier": 0.5
+      },
+      {
+        "when": {
+          "all": [
+            {
+              "any": [
+                {
+                  "flag": "cv_dominant"
+                },
+                {
+                  "flag": "speech_dominant"
+                },
+                {
+                  "flag": "robotics_dominant"
+                }
+              ]
+            },
+            {
+              "not": {
+                "flag": "nlp_ir_significant"
+              }
+            }
+          ]
+        },
+        "multiplier": 0.25,
+        "id": "domain_gate"
+      }
+    ],
+    "clamp": [
+      0.0,
+      1.0
+    ]
+  },
+  "skill_booster": {
+    "when": {
+      "metric": "career_substance",
+      "op": ">=",
+      "value": 0.6
+    },
+    "per_skill": 0.02,
+    "max": 0.06,
+    "credit_rule": "count num_qualifying_unevidenced_skills, bonus = min(max, per_skill * count). disqualified skills give zero (not a penalty).",
+    "qualifying": [
+      "learning to rank",
+      "bm25",
+      "pgvector",
+      "weaviate",
+      "milvus",
+      "qdrant",
+      "haystack",
+      "opensearch",
+      "elasticsearch",
+      "lora",
+      "qlora",
+      "peft",
+      "llamaindex",
+      "ranking systems",
+      "search infrastructure",
+      "indexing algorithms",
+      "text encoders",
+      "information retrieval systems",
+      "search backend"
+    ],
+    "disqualified": [
+      "langchain",
+      "rag",
+      "llms",
+      "embeddings",
+      "vector search",
+      "semantic search",
+      "pinecone",
+      "prompt engineering",
+      "sentence transformers",
+      "hugging face transformers",
+      "recommendation systems",
+      "information retrieval",
+      "mlops",
+      "data science",
+      "machine learning",
+      "nlp",
+      "deep learning",
+      "ai"
+    ]
+  },
+  "multipliers": [
+    {
+      "id": "current_title_congruence",
+      "type": "lookup",
+      "feature": "current_title_bucket",
+      "map": {
+        "hard_sink": 0.06,
+        "heavy_penalty": 0.25,
+        "neutral_read_description": 0.55,
+        "moderate_positive": 0.8,
+        "strong_positive": 0.95,
+        "ideal": 1.0
+      },
+      "default": 0.55
+    },
+    {
+      "id": "company_context",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": {
+            "all": [
+              {
+                "flag": "current_is_services"
+              },
+              {
+                "flag": "has_product_company"
+              }
+            ]
+          },
+          "value": 1.0
+        },
+        {
+          "when": {
+            "all": [
+              {
+                "flag": "current_is_services"
+              },
+              {
+                "not": {
+                  "flag": "has_product_company"
+                }
+              }
+            ]
+          },
+          "value": 0.85
+        },
+        {
+          "when": {
+            "all": [
+              {
+                "flag": "majority_career_services"
+              },
+              {
+                "flag": "has_product_company"
+              }
+            ]
+          },
+          "value": 0.9
+        }
+      ]
+    },
+    {
+      "id": "experience_band",
+      "type": "curve",
+      "feature": "years_of_experience",
+      "direction": "min",
+      "bands": [
+        {
+          "at": 4,
+          "value": 1.0
+        },
+        {
+          "at": 3,
+          "value": 0.94
+        },
+        {
+          "at": 0,
+          "value": 0.88
+        }
+      ]
+    },
+    {
+      "id": "applied_ml_years",
+      "type": "curve",
+      "feature": "applied_ml_years",
+      "direction": "min",
+      "bands": [
+        {
+          "at": 4.0,
+          "value": 1.0
+        },
+        {
+          "at": 2.5,
+          "value": 0.92
+        },
+        {
+          "at": 1.0,
+          "value": 0.8
+        },
+        {
+          "at": 0.0,
+          "value": 0.6
+        }
+      ]
+    },
+    {
+      "id": "location",
+      "type": "lookup",
+      "feature": "location_relocation_bucket",
+      "map": {
+        "local": 1.0,
+        "tier1_relocating": 0.88,
+        "tier1_not_relocating": 0.3,
+        "other_india_relocating": 0.75,
+        "other_india_not_relocating": 0.1,
+        "outside_relocating": 0.15,
+        "outside_not_relocating": 0.04
+      },
+      "default": 0.1
+    },
+    {
+      "id": "work_mode_overlay",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": {
+            "all": [
+              {
+                "flag": "prefers_remote"
+              },
+              {
+                "flag": "is_local"
+              }
+            ]
+          },
+          "value": 1.0
+        },
+        {
+          "when": {
+            "flag": "prefers_remote"
+          },
+          "value": 0.78
+        }
+      ]
+    },
+    {
+      "id": "verification",
+      "type": "lookup",
+      "feature": "verification_state",
+      "map": {
+        "both": 1.0,
+        "one": 0.95,
+        "neither": 0.88
+      },
+      "default": 0.88
+    },
+    {
+      "id": "behavioral",
+      "type": "composite_product",
+      "clamp": [
+        0.05,
+        1.05
+      ],
+      "members": [
+        {
+          "id": "last_active_recency",
+          "type": "curve",
+          "feature": "last_active_days",
+          "direction": "max",
+          "bands": [
+            {
+              "at": 30,
+              "value": 1.0
+            },
+            {
+              "at": 90,
+              "value": 0.9
+            },
+            {
+              "at": 180,
+              "value": 0.7
+            },
+            {
+              "at": null,
+              "value": 0.45
+            }
+          ]
+        },
+        {
+          "id": "recruiter_response",
+          "type": "curve",
+          "feature": "recruiter_response_rate",
+          "direction": "min",
+          "bands": [
+            {
+              "at": 0.6,
+              "value": 1.0
+            },
+            {
+              "at": 0.3,
+              "value": 0.75
+            },
+            {
+              "at": 0.0,
+              "value": 0.4
+            }
+          ]
+        },
+        {
+          "id": "open_to_work",
+          "type": "conditional",
+          "default": 0.85,
+          "cases": [
+            {
+              "when": {
+                "flag": "open_to_work_flag"
+              },
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "id": "interview_completion",
+          "type": "curve",
+          "feature": "interview_completion_rate",
+          "direction": "min",
+          "bands": [
+            {
+              "at": 0.9,
+              "value": 1.0
+            },
+            {
+              "at": 0.5,
+              "value": 0.92
+            },
+            {
+              "at": 0.0,
+              "value": 0.85
+            }
+          ]
+        },
+        {
+          "id": "saved_by_recruiters",
+          "type": "curve",
+          "feature": "saved_by_recruiters_30d",
+          "direction": "min",
+          "bands": [
+            {
+              "at": 5,
+              "value": 1.05
+            },
+            {
+              "at": 1,
+              "value": 1.02
+            },
+            {
+              "at": 0,
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "id": "applications_recent",
+          "type": "curve",
+          "feature": "applications_submitted_30d",
+          "direction": "min",
+          "bands": [
+            {
+              "at": 1,
+              "value": 1.0
+            },
+            {
+              "at": 0,
+              "value": 0.97
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notice_period",
+      "type": "curve",
+      "feature": "notice_period_days",
+      "direction": "max",
+      "bands": [
+        {
+          "at": 30,
+          "value": 1.0
+        },
+        {
+          "at": 60,
+          "value": 0.95
+        },
+        {
+          "at": 90,
+          "value": 0.9
+        },
+        {
+          "at": null,
+          "value": 0.82
+        }
+      ]
+    },
+    {
+      "id": "title_chaser",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": {
+            "all": [
+              {
+                "metric": "median_tenure_last_3_months",
+                "op": "<",
+                "value": 18
+              },
+              {
+                "metric": "current_role_duration_months",
+                "op": "<",
+                "value": 24
+              },
+              {
+                "flag": "titles_escalating"
+              }
+            ]
+          },
+          "value": 0.33
+        }
+      ]
+    },
+    {
+      "id": "education_overlap_penalty",
+      "type": "decay",
+      "feature": "num_education_overlaps",
+      "base": 0.98,
+      "floor": 0.92
+    },
+    {
+      "id": "skill_anomaly_penalty",
+      "type": "decay",
+      "feature": "num_skill_anomalies",
+      "base": 0.985,
+      "floor": 0.93
+    },
+    {
+      "id": "github_bonus",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": {
+            "all": [
+              {
+                "metric": "career_substance",
+                "op": ">=",
+                "value": 0.6
+              },
+              {
+                "metric": "github_activity_score",
+                "op": ">",
+                "value": 60
+              }
+            ]
+          },
+          "value": 1.03
+        }
+      ]
+    }
+  ],
+  "hard_gates": [
+    {
+      "id": "research_no_production",
+      "when": {
+        "flag": "research_not_applied"
+      },
+      "multiplier": 0.03
+    },
+    {
+      "id": "lifelong_services",
+      "when": {
+        "all": [
+          {
+            "flag": "majority_career_services"
+          },
+          {
+            "not": {
+              "flag": "has_product_company"
+            }
+          }
+        ]
+      },
+      "multiplier": 0.12
+    },
+    {
+      "id": "langchain_recent_only",
+      "when": {
+        "all": [
+          {
+            "flag": "llm_api_wrapper_only"
+          },
+          {
+            "flag": "recent_llm_only_lt12mo"
+          },
+          {
+            "not": {
+              "flag": "pre_llm_ml_production"
+            }
+          }
+        ]
+      },
+      "multiplier": 0.2
+    },
+    {
+      "id": "stale_coding_senior",
+      "when": {
+        "all": [
+          {
+            "flag": "no_prod_code_recent"
+          },
+          {
+            "any": [
+              {
+                "flag": "manager_not_builder"
+              },
+              {
+                "not": {
+                  "flag": "ic_role"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "multiplier": 0.3
+    }
+  ],
+  "lookups": {
+    "company": {
+      "it_services": [
+        "infosys",
+        "wipro",
+        "tcs",
+        "tata consultancy services",
+        "hcl",
+        "capgemini",
+        "accenture",
+        "mindtree",
+        "cognizant",
+        "tech mahindra",
+        "mphasis",
+        "ltimindtree",
+        "genpact",
+        "genpact ai"
+      ],
+      "fictional_neutral": [
+        "wayne enterprises",
+        "initech",
+        "pied piper",
+        "acme corp",
+        "globex inc",
+        "hooli",
+        "dunder mifflin",
+        "stark industries"
+      ],
+      "product_india": [
+        "swiggy",
+        "zomato",
+        "flipkart",
+        "meesho",
+        "nykaa",
+        "ola",
+        "razorpay",
+        "cred",
+        "phonepe",
+        "paytm",
+        "dream11",
+        "freshworks",
+        "zoho",
+        "inmobi",
+        "policybazaar",
+        "pharmeasy",
+        "upgrad",
+        "byju's",
+        "byjus",
+        "vedantu",
+        "unacademy"
+      ],
+      "ai_native": [
+        "sarvam ai",
+        "krutrim",
+        "glance",
+        "mad street den",
+        "haptik",
+        "observe.ai",
+        "yellow.ai",
+        "rephrase.ai",
+        "wysa",
+        "niramai",
+        "saarthi.ai",
+        "locobuzz",
+        "verloop.io",
+        "aganitha"
+      ],
+      "tier_0": [
+        "google",
+        "meta",
+        "amazon",
+        "netflix",
+        "microsoft",
+        "adobe",
+        "uber",
+        "linkedin",
+        "apple",
+        "salesforce"
+      ],
+      "product_set": [
+        "product_india",
+        "tier_0",
+        "ai_native"
+      ]
+    },
+    "location": {
+      "local_cities": [
+        "pune",
+        "noida",
+        "delhi",
+        "delhi ncr",
+        "gurgaon",
+        "gurugram",
+        "ghaziabad",
+        "faridabad"
+      ],
+      "tier1_cities": [
+        "mumbai",
+        "hyderabad",
+        "bangalore",
+        "bengaluru",
+        "chennai"
+      ]
+    },
+    "title": {
+      "current_title_buckets": {
+        "hard_sink": [
+          "graphic designer",
+          "hr manager",
+          "marketing manager",
+          "content writer",
+          "sales executive",
+          "accountant",
+          "civil engineer",
+          "mechanical engineer",
+          "customer support",
+          "operations manager"
+        ],
+        "heavy_penalty": [
+          "business analyst",
+          "project manager"
+        ],
+        "neutral_read_description": [
+          "software engineer",
+          "full stack developer",
+          "backend engineer",
+          "senior software engineer",
+          "java developer",
+          ".net developer",
+          "frontend engineer",
+          "mobile developer",
+          "cloud engineer",
+          "devops engineer",
+          "qa engineer"
+        ],
+        "moderate_positive": [
+          "data scientist",
+          "data engineer",
+          "analytics engineer",
+          "senior data engineer",
+          "data analyst",
+          "ai specialist"
+        ],
+        "strong_positive": [
+          "ml engineer",
+          "machine learning engineer",
+          "ai engineer",
+          "nlp engineer",
+          "applied ml engineer",
+          "search engineer",
+          "recommendation systems engineer",
+          "computer vision engineer",
+          "ai research engineer",
+          "senior software engineer (ml)"
+        ],
+        "ideal": [
+          "senior ml engineer",
+          "senior machine learning engineer",
+          "staff machine learning engineer",
+          "lead ai engineer",
+          "senior ai engineer",
+          "senior nlp engineer",
+          "senior applied scientist",
+          "senior ml engineer — search & ranking"
+        ]
+      },
+      "career_ml_credit": {
+        "zero_always": {
+          "factor": 0.0,
+          "titles": [
+            "graphic designer",
+            "hr manager",
+            "marketing manager",
+            "content writer",
+            "sales executive",
+            "accountant",
+            "civil engineer",
+            "mechanical engineer",
+            "customer support",
+            "business analyst",
+            "project manager",
+            "operations manager",
+            "recruiter"
+          ]
+        },
+        "neutral_read_description": {
+          "factor": 0.0,
+          "titles": [
+            "software engineer",
+            "full stack developer",
+            "backend engineer",
+            "java developer",
+            ".net developer",
+            "frontend engineer",
+            "mobile developer",
+            "cloud engineer",
+            "devops engineer",
+            "qa engineer"
+          ]
+        },
+        "partial": {
+          "factor": 0.5,
+          "titles": [
+            "data engineer",
+            "analytics engineer",
+            "data analyst",
+            "data scientist",
+            "ai specialist",
+            "senior data engineer"
+          ]
+        },
+        "full": {
+          "factor": 1.0,
+          "titles": [
+            "ml engineer",
+            "machine learning engineer",
+            "junior ml engineer",
+            "ai engineer",
+            "nlp engineer",
+            "applied ml engineer",
+            "search engineer",
+            "recommendation systems engineer",
+            "computer vision engineer",
+            "ai research engineer",
+            "senior software engineer (ml)",
+            "senior ml engineer",
+            "senior machine learning engineer",
+            "staff machine learning engineer",
+            "lead ai engineer",
+            "senior ai engineer",
+            "senior nlp engineer",
+            "senior applied scientist",
+            "senior ml engineer — search & ranking"
+          ]
+        }
+      }
+    }
+  },
+  "slm_questions": {
+    "input_scope": "career_history only (titles, companies, descriptions, is_current). No education/skills/location/signals.",
+    "extraction_order": "emit subject_of_primary_work and a 1-line evidence span first, then booleans. Never alphabetize the schema.",
+    "ask": [
+      {
+        "id": "subject_of_primary_work",
+        "type": "string",
+        "q": "In the candidate's most ML-relevant role, who performed the core ML/retrieval/ranking work — the candidate personally, their team/colleagues, or a team they managed? Quote the phrase that tells you."
+      },
+      {
+        "id": "owns_retrieval_prod",
+        "q": "Did the candidate personally build or own a production embeddings-based retrieval system serving real users?"
+      },
+      {
+        "id": "vector_db_prod",
+        "q": "Did the candidate personally operate a vector DB or hybrid-search infrastructure in production (Pinecone/Weaviate/Qdrant/Milvus/OpenSearch/Elasticsearch/FAISS or similar)?"
+      },
+      {
+        "id": "owns_eval_framework",
+        "q": "Did the candidate design an evaluation framework for a ranking/retrieval system (NDCG/MRR/MAP, offline-to-online correlation, or A/B-test interpretation)?"
+      },
+      {
+        "id": "strong_python_prod",
+        "q": "Is there evidence of strong production Python engineering, not just scripting/notebooks?"
+      },
+      {
+        "id": "retrieval_ops_depth",
+        "q": "Did the candidate handle retrieval operations specifically — embedding drift, index refresh, or retrieval-quality regression in production?"
+      },
+      {
+        "id": "owns_ranking_prod",
+        "q": "Did the candidate personally build or own a production ranking/recommendation system?"
+      },
+      {
+        "id": "shipped_endtoend_at_scale",
+        "q": "Did the candidate ship at least one end-to-end ranking, search, or recommendation system to real users at meaningful scale?"
+      },
+      {
+        "id": "ltr_experience",
+        "q": "Does the candidate have learning-to-rank experience (gradient-boosted or neural rankers)?"
+      },
+      {
+        "id": "reranker_twostage",
+        "q": "Has the candidate built a two-stage retrieve-then-rerank pipeline?"
+      },
+      {
+        "id": "relevance_judgment_pipeline",
+        "q": "Has the candidate built a relevance-judgment or labeling pipeline for a ranking/search system?"
+      },
+      {
+        "id": "realtime_ml_serving",
+        "q": "Has the candidate built real-time / low-latency ML serving infrastructure?"
+      },
+      {
+        "id": "llm_finetuning",
+        "q": "Does the candidate have hands-on LLM fine-tuning experience (LoRA/QLoRA/PEFT), not just API calling?"
+      },
+      {
+        "id": "ab_testing_ml",
+        "q": "Has the candidate run A/B tests for ML/ranking systems and interpreted the results?"
+      },
+      {
+        "id": "distributed_systems_scale",
+        "q": "Does the candidate have distributed-systems or large-scale inference-optimization background?"
+      },
+      {
+        "id": "hrtech_or_marketplace_exp",
+        "q": "Does the candidate have HR-tech, recruiting-tech, or marketplace-product experience?"
+      },
+      {
+        "id": "prod_ml_ops",
+        "q": "Did the candidate run ML in production with real MLOps (deployment, monitoring, retraining), not just model training?"
+      },
+      {
+        "id": "external_validation",
+        "q": "Does the history explicitly mention papers, talks, or open-source contributions?"
+      },
+      {
+        "id": "first_person_ownership",
+        "q": "Is the ML work described in first-person ownership terms (built/shipped/designed/implemented by the candidate)?"
+      },
+      {
+        "id": "primarily_adjacent",
+        "q": "Was the candidate primarily adjacent to the ML work — built the pipelines/APIs/infra that served someone else's model, rather than the model/ranking itself?"
+      },
+      {
+        "id": "observer_not_owner",
+        "q": "Did the candidate lead/coordinate/contribute to the work without personally building it (leader/observer, not owner)?"
+      },
+      {
+        "id": "manager_not_builder",
+        "q": "Is the candidate described primarily as a manager whose team did the building, rather than an individual builder?"
+      },
+      {
+        "id": "cv_dominant",
+        "q": "Is the candidate's ML work primarily computer vision?"
+      },
+      {
+        "id": "speech_dominant",
+        "q": "Is the candidate's ML work primarily speech/audio?"
+      },
+      {
+        "id": "robotics_dominant",
+        "q": "Is the candidate's ML work primarily robotics/control?"
+      },
+      {
+        "id": "nlp_ir_significant",
+        "q": "Does the candidate have significant NLP or information-retrieval experience?"
+      },
+      {
+        "id": "research_not_applied",
+        "q": "Is the candidate's career purely research/academic (research-only roles or academic labs) WITHOUT any production deployment?"
+      },
+      {
+        "id": "ic_role",
+        "q": "Is the candidate currently an individual contributor who writes code, as opposed to a pure architecture/tech-lead role?"
+      },
+      {
+        "id": "no_prod_code_recent",
+        "q": "Has the candidate NOT written production code in roughly the last 18 months (moved into architecture/tech-lead/management)?"
+      },
+      {
+        "id": "llm_api_wrapper_only",
+        "q": "Is the candidate's AI experience primarily calling hosted LLM APIs / LangChain wrappers rather than building ML systems?"
+      },
+      {
+        "id": "recent_llm_only_lt12mo",
+        "q": "Is that LLM-wrapper work recent (under ~12 months) with no deeper ML history before it?"
+      },
+      {
+        "id": "pre_llm_ml_production",
+        "q": "Does the candidate have substantial pre-LLM-era ML production experience (understood retrieval/ranking before it was fashionable)?"
+      },
+      {
+        "id": "is_hobbyist_or_self_learner",
+        "q": "Does the candidate explicitly state their AI/ML experience is from self-learning, side projects, online courses, or otherwise NOT in a professional capacity?"
+      }
+    ],
+    "candidates_for_eval_only": [
+      {
+        "id": "backend_integration_only",
+        "q": "Did the candidate explicitly state their role was only integrating the model / observability / writing the APIs, and explicitly not the model itself?",
+        "status": "HOLD — likely redundant with primarily_adjacent. Add only if the hard-case eval shows primarily_adjacent missing this case."
+      }
+    ]
+  }
+}
