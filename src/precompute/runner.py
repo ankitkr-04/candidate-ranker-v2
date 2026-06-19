@@ -15,6 +15,8 @@ import json
 
 from src.models.candidate import Candidate
 from src.models.policy import SlmQuestions
+from typing import Literal, cast
+from vllm.entrypoints.chat_utils import ChatCompletionMessageParam # type: ignore[import-not-found]
 from src.precompute.download_model import ensure_model
 from src.precompute.slm_input import build_messages, build_schema, slm_columns
 
@@ -56,12 +58,19 @@ class SlmRunner:
         model_dir=None,
         max_model_len: int = 4096,
         max_tokens: int = 512,
-        dtype: str = "auto",
+        dtype: Literal[
+                "auto",
+                "half",
+                "float16",
+                "bfloat16",
+                "float",
+                "float32",
+                ] = "auto",
         gpu_memory_utilization: float = 0.90,
 
     ) -> None:
         from vllm import LLM, SamplingParams  # type: ignore[import-not-found]
-        from vllm.sampling_params import GuidedDecodingParams  # type: ignore[import-not-found]
+        from vllm.sampling_params import StructuredOutputsParams  # type: ignore[import-not-found]
 
         model_path = model_dir or ensure_model()
         self._llm = LLM(
@@ -74,7 +83,9 @@ class SlmRunner:
         self._sampling = SamplingParams(
             temperature=0.0,
             max_tokens=max_tokens,
-            guided_decoding=GuidedDecodingParams(json=build_schema(questions)),
+            structured_outputs=StructuredOutputsParams(
+                json=build_schema(questions)
+            ),
         )
         self._questions = questions
         self._flag_columns = [c for c in slm_columns(tuning) if c not in (_SUBJECT, _EVIDENCE)]
@@ -83,7 +94,10 @@ class SlmRunner:
         if not candidates:
             return []
         conversations = [build_messages(c, self._questions) for c in candidates]
-        outputs = self._llm.chat(conversations, self._sampling)
+        outputs = self._llm.chat(
+            cast(list[list[ChatCompletionMessageParam]], conversations),
+            self._sampling,
+        )
         return [
             _parse_output(candidate, output.outputs[0].text if output.outputs else "", self._flag_columns)
             for candidate, output in zip(candidates, outputs)
