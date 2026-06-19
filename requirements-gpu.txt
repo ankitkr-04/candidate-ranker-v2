@@ -9,5 +9,5 @@
 # Then the rest of the deps:
 #   pip install -r requirements.txt transformers "huggingface_hub[hf_transfer]"
 vllm>=0.6              # install via: uv pip install vllm --torch-backend=auto
-transformers==4.57.1
+# let uv auto install transformers with the correct CUDA backend
 huggingface_hub[hf_transfer]>=0.24
