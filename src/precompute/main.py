@@ -24,6 +24,7 @@ from src.models.features import parquet_schema
 from src.models.tuning import SlmQuestionSet, Tuning
 from src.paths import CANDIDATES_DIR, TUNING_ARTIFACT_DIR, pool_artifact_dir
 from src.precompute.slm_input import apply_slm_facts, existing_slm_facts
+from src.ranking.scorer import ceiling_expr
 
 
 def load_tuning() -> Tuning:
@@ -88,6 +89,22 @@ def load_questions() -> SlmQuestionSet:
     return SlmQuestionSet.model_validate_json(path.read_text())
 
 
+def select_for_slm(table: pl.DataFrame, tuning: Tuning, slm_ceiling: float) -> set[str]:
+    """candidate_ids whose best-possible (ceiling) score clears the threshold.
+
+    Candidates below it cannot reach the top even with a perfect SLM result, so the
+    model is skipped for them. They keep null SLM columns, score 0 in the ranker, and
+    remain in the table -- they are never removed.
+
+    career_substance is the SLM-derived headroom; the ceiling assumes its best case
+    (1.0) so any stage gated on it counts toward the upper bound.
+    """
+    ceilings = table.with_columns(pl.lit(1.0).alias("career_substance")).select(
+        "candidate_id", ceiling_expr(tuning).alias("ceiling")
+    )
+    return set(ceilings.filter(pl.col("ceiling") >= slm_ceiling)["candidate_id"].to_list())
+
+
 def run_slm_stage(
     table: pl.DataFrame,
     candidates: list[Candidate],
@@ -99,17 +116,25 @@ def run_slm_stage(
     dtype: str,
     max_model_len: int,
     max_tokens: int,
+    slm_ceiling: float,
 ) -> pl.DataFrame:
     """Fill the SLM columns, reusing cached facts unless --force is set.
 
-    Facts are written to the parquet after every batch so a long run (e.g. 100k on
-    a single GPU) survives an interruption and resumes from the cache on re-run.
+    Only candidates whose deterministic ceiling clears --slm-ceiling are scored; the
+    rest are left null (score 0, still ranked). Facts are written to the parquet after
+    every batch so a long run (e.g. 100k on a single GPU) survives an interruption and
+    resumes from the cache on re-run.
     """
     from src.precompute.runner import SlmRunner  # GPU-only dependency, imported lazily.
 
     questions = load_questions()
     cached = {} if force else existing_slm_facts(out_path, tuning)
-    todo = [c for c in candidates if c.candidate_id not in cached]
+    selected = select_for_slm(table, tuning, slm_ceiling)
+    todo = [c for c in candidates if c.candidate_id in selected and c.candidate_id not in cached]
+    print(
+        f"SLM pre-filter: {len(selected)}/{len(candidates)} selected "
+        f"(ceiling >= {slm_ceiling}), {len(candidates) - len(selected)} skipped"
+    )
     print(f"SLM: {len(cached)} cached, {len(todo)} to compute")
 
     facts = list(cached.values())
@@ -136,6 +161,11 @@ def main() -> None:
     parser.add_argument("--dtype", default="auto", help="vLLM dtype; use 'half' on GPUs without bf16 (e.g. T4).")
     parser.add_argument("--max-model-len", type=int, default=4096, help="vLLM max sequence length; lower raises concurrency.")
     parser.add_argument("--max-tokens", type=int, default=512, help="Max new tokens generated per candidate.")
+    parser.add_argument(
+        "--slm-ceiling", type=float, default=0.02,
+        help="Skip the SLM for candidates whose best-possible score is below this "
+             "(they stay ranked at 0). Lower is safer and runs more candidates.",
+    )
     args = parser.parse_args()
 
     tuning = load_tuning()
@@ -146,11 +176,21 @@ def main() -> None:
     out_path = Path(args.out) if args.out else pool_artifact_dir(pool) / "features.parquet"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if not args.no_slm:
+    if args.no_slm:
+        # Rebuilding deterministic features must not discard SLM facts from an earlier
+        # GPU run: merge them back (no model invocation) unless --force asks for a
+        # clean deterministic-only table.
+        if not args.force:
+            cached = existing_slm_facts(out_path, tuning)
+            if cached:
+                table = apply_slm_facts(table, list(cached.values()), tuning)
+                print(f"Preserved {len(cached)} cached SLM facts (no-slm)")
+    else:
         table = run_slm_stage(
             table, candidates, tuning, out_path,
             force=args.force, batch_size=args.batch_size, dtype=args.dtype,
             max_model_len=args.max_model_len, max_tokens=args.max_tokens,
+            slm_ceiling=args.slm_ceiling,
         )
 
     table.write_parquet(out_path)

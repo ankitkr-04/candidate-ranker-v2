@@ -123,6 +123,26 @@ def _flag_columns(tuning: Tuning) -> list[str]:
     return list(tuning.features.flags.deterministic.keys()) + list(tuning.features.flags.slm)
 
 
+def ceiling_expr(tuning: Tuning) -> pl.Expr:
+    """Best-possible score for a candidate given only deterministic features.
+
+    The multiplier stages and hard gates depend on deterministic columns, so the
+    only headroom is base_score (career_substance + skill_booster), which a perfect
+    SLM result maxes at 1.0. Holding base_score and the gates at 1.0 (their
+    no-penalty value) gives an upper bound on the achievable score: the multipliers
+    contribute their actual deterministic value, and a honeypot still forces 0.
+    Pre-filtering on this never drops a candidate who could place.
+
+    One stage (github_bonus) gates on career_substance, which the scorer computes
+    rather than stores. The caller must provide a best-case `career_substance`
+    column (1.0) so that bonus can fire here; see `select_for_slm`.
+    """
+    ceiling = pl.lit(1.0)
+    for stage in tuning.multipliers:
+        ceiling = ceiling * _stage_expr(stage)
+    return pl.when(compile_predicate(tuning.honeypot_exclusion.when)).then(pl.lit(0.0)).otherwise(ceiling)
+
+
 def score_frame(frame: pl.DataFrame, tuning: Tuning) -> pl.DataFrame:
     """Return the frame with career_substance, per-stage, and final score columns."""
     # Uncertain handling: an undetermined flag contributes nothing and fires no
