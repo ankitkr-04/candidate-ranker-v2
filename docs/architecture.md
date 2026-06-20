@@ -1,76 +1,254 @@
 # Architecture
 
-Two stages with a Parquet handoff. Precompute does all the heavy work ahead of time;
-the ranker is fast, deterministic, and reproducible on CPU.
+## Overview
+
+candidate-ranker is a two-stage pipeline. The expensive work (parsing, normalization,
+feature extraction, SLM inference) runs once in **precompute** on a GPU with network
+access and writes a flat Parquet file. The **ranker** then reads that file, compiles the
+entire scoring policy into vectorized Polars expressions, scores all candidates in a single
+pass, and emits the top-N CSV — in milliseconds, on CPU, with no network.
+
+```mermaid
+flowchart LR
+    subgraph PRECOMPUTE["Precompute (GPU + network, no time limit)"]
+        direction TB
+        A[candidate pool\n.jsonl / .json] --> B[parse + validate\nPydantic v2]
+        B --> C[normalize\ngeo / company / title]
+        C --> D[deterministic features\nflags · metrics · categoricals]
+        D --> E[integrity signals\njob-agnostic plausibility]
+        E --> F{ceiling\npre-filter}
+        F -->|ceiling >= 0.02| G[SLM inference\nQwen3-4B · vLLM]
+        F -->|ceiling < 0.02| H[keep null SLM cols\nscore ~0, still ranked]
+        G --> I[(features.parquet\none row per candidate)]
+        H --> I
+    end
+
+    subgraph RANKING["Ranking (CPU · no network · ≤5 min · ≤16 GB)"]
+        direction TB
+        I --> J[scan parquet\nPolars lazy]
+        J --> K[compile policy\nPolars expressions]
+        K --> L[score + sort + tie-break\nvectorized]
+        L --> M[top-N reasoning\nPython, ≤100 rows]
+        M --> N[submission.csv\ncandidate_id · rank · score · reasoning]
+    end
+```
+
+The key invariant: **no candidate is ever removed**. Honeypots, gates, and penalties drive
+a score toward 0 but the row stays in the ranking so penalised profiles sink rather than
+disappear.
+
+---
+
+## Config and artifact flow
+
+All inputs are under `assets/` (hand-authored, committed). All outputs are under
+`artifacts/` (generated, gitignored). Two parallel config trees — the JD and the integrity
+layer — stay independent so editing one never disturbs the other.
+
+```mermaid
+flowchart TD
+    JD["assets/job/jd_parsed.json\nScoring policy v4.0"]
+    IP["assets/integrity/penalties.json\nJob-agnostic plausibility rules"]
+    PARSE["python -m src.jd_parser.parse\nvalidates both sources"]
+
+    JD --> PARSE
+    IP --> PARSE
+
+    PARSE --> TJ["artifacts/tuning/tuning.json\nranker knobs · multipliers · gates · lookups"]
+    PARSE --> SQ["artifacts/tuning/slm_questions.json\nSLM question set + prompt instructions"]
+    PARSE --> IJ["artifacts/tuning/integrity.json\nintegrity penalties artifact"]
+
+    TJ --> PRE["precompute\nbuild_feature_table · SLM stage"]
+    IJ --> PRE
+    SQ --> PRE
+
+    PRE --> FP["artifacts/100k/features.parquet"]
+
+    TJ --> RANK["ranker\nscore_frame · reasoning"]
+    IJ --> RANK
+    FP --> RANK
+
+    RANK --> CSV["artifacts/100k/submission.csv"]
+```
+
+Re-tuning numeric knobs → re-run the **ranker** only (seconds).
+Re-tuning lookup membership → re-run the **CPU feature build** (`--no-slm`, preserves SLM
+facts).
+Only the SLM step is expensive, and it is incremental/resumable.
+
+---
+
+## The feature table (features.parquet)
+
+One flat, typed row per candidate. Every column is a scalar — no nested types — so the
+ranker can compile the whole policy into a single vectorized Polars pass.
 
 ```
-precompute (GPU + network, no time limit)        ranking (CPU, no network, <=5 min)
-  parse JSONL  -> typed Candidate                  scan features.parquet
-  normalize    (geo / company / title)             compile policy -> Polars expressions
-  deterministic features (metrics, buckets)        score + sort + tie-break
-  integrity signals (job-agnostic plausibility)    top-N rows -> reasoning
-  SLM facts    (33 booleans + evidence span)       submission.csv
-       \__________ features.parquet ___________________/
+candidate_id          String         primary key
+─── deterministic flags (Boolean) ───────────────────────────────
+current_is_services   has_ai_native   has_product_company
+majority_career_services   titles_escalating   is_local
+prefers_remote   open_to_work_flag   recent_nonml_pivot
+─── integrity flags (Boolean) ────────────────────────────────────
+end_before_start   career_months_overrun   role_months_overrun
+current_role_date_conflict   senior_title_pre_graduation
+─── SLM flags (Boolean, null until SLM runs) ─────────────────────
+owns_retrieval_prod   owns_ranking_prod   owns_eval_framework
+vector_db_prod   shipped_endtoend_at_scale   retrieval_ops_depth
+ltr_experience   reranker_twostage   llm_finetuning
+realtime_ml_serving   prod_ml_ops   hrtech_or_marketplace_exp
+external_validation   manager_not_builder   research_not_applied
+primarily_adjacent   observer_not_owner   llm_api_wrapper_only
+recent_llm_only_lt12mo   is_hobbyist_or_self_learner
+cv_dominant   speech_dominant   robotics_dominant   ...
+─── metrics (Float64) ────────────────────────────────────────────
+years_of_experience   applied_ml_years
+median_tenure_last_3_months   current_role_duration_months
+last_active_days   recruiter_response_rate   interview_completion_rate
+saved_by_recruiters_30d   applications_submitted_30d
+notice_period_days   github_activity_score
+num_qualifying_unevidenced_skills
+num_education_overlaps   num_skill_anomalies   num_skill_anachronisms
+─── categoricals (String) ────────────────────────────────────────
+current_title_bucket   location_relocation_bucket   verification_state
+─── display fields (String / Boolean) ────────────────────────────
+current_title   current_company   location   country
+preferred_work_mode   willing_to_relocate
+─── SLM text (String, null until SLM runs) ───────────────────────
+subject_of_primary_work   evidence
 ```
 
-## Scoring policy
+The schema is derived from the policy at runtime via `src/models/features.py:parquet_schema`
+so it cannot drift from what the scorer references.
 
-The job policy (`assets/job/jd_parsed.json`, parsed to `artifacts/tuning/tuning.json`) is a
-deterministic engine:
+---
+
+## Scoring formula
 
 ```
-base_score = clamp(career_substance + skill_booster, 0, 1)
-score      = base_score
-             x multiplier stages      (title, company, location, work-mode, ...)
-             x hard gates             (e.g. lifelong-services)
-             x integrity penalties    (job-agnostic; see docs/integrity.md)
-             then honeypot-zeroed if any hp_* flag fires
+career_substance = clamp(
+    Σ(additive SLM flags × weight)   ← the only SLM-dependent part
+    × Π(internal gates)
+  , 0, 1)
+
+skill_booster    = min(max, per_skill × num_qualifying_unevidenced_skills)
+                   if career_substance >= 0.6 else 0
+
+base_score       = clamp(career_substance + skill_booster, 0, 1)
+
+score            = base_score
+                   × Π(JD multiplier stages)         ← all deterministic
+                   × Π(integrity penalty stages)     ← all deterministic
+                   × Π(hard gates)                   ← all deterministic
+                   [→ 0 if any hp_* honeypot flag fires]
 ```
 
-- **`career_substance`** is the *only* SLM-dependent part of the score: its additive
-  ownership flags and internal gates all come from the model. Its theoretical max is 1.0.
-- **`skill_booster`** is gated on `career_substance >= 0.6`.
-- Every multiplier stage and hard gate reads **deterministic** features only.
+`career_substance` is the **only SLM-dependent part**. Its theoretical maximum is 1.0
+(all ownership flags true, all internal gates open). Because every multiplier, penalty, and
+hard gate reads only deterministic columns, the best-possible score for any candidate is an
+exact, computable upper bound — the "ceiling" used by the SLM pre-filter.
 
-No candidate is ever removed. Honeypots and gates drive a score toward 0 but the row stays
-in the ranking, so penalised profiles sink rather than disappear.
+---
 
-## Vectorized compilation
+## Multiplier stage types
 
-The whole policy compiles to Polars expressions over a flat, wide fact table (one column
-per flag / metric / categorical). There is no per-row Python over the pool:
+All five types compile to Polars expressions via `src/ranking/scorer.py:_stage_expr`.
 
-- `ranking/predicate.py` — `compile_predicate(pred) -> pl.Expr` (flag/metric leaves,
-  `all`/`any`/`not`, comparison ops).
-- `ranking/scorer.py` — each multiplier `type` (`lookup`, `curve`, `conditional`, `decay`,
-  `composite_product`) compiles to a `pl.Expr`; gates and integrity penalties are extra
-  stages; one lazy query produces `score` plus a per-stage breakdown column for debug.
+```mermaid
+graph TD
+    MS[Multiplier stage] --> LK[lookup\nmap: categorical → float]
+    MS --> CV[curve\nbanded threshold on a metric\nmin or max direction]
+    MS --> CD[conditional\nif/elif/else on a Predicate]
+    MS --> DC[decay\nbase^feature clamped to floor\nexponential penalty on a count]
+    MS --> CP[composite_product\nnested product of other stages\nclamped to a range]
+```
 
-100k candidates score in milliseconds. The only Python loop is reasoning over the <=100
-selected rows (`ranking/reasoning.py`), composed from the breakdown columns + the SLM
-evidence span so the text stays grounded.
+| type | key fields | used for |
+|---|---|---|
+| `lookup` | `feature`, `map`, `default` | map a categorical to a multiplier (e.g. title bucket → 1.3×) |
+| `curve` | `feature`, `direction`, `bands` | step-function on a metric (e.g. applied-ML years) |
+| `conditional` | `cases[{when, value}]`, `default` | predicate-gated multiplier (e.g. title_chaser) |
+| `decay` | `feature`, `base`, `floor` | `max(floor, base^count)` — exponential per-count penalty |
+| `composite_product` | `members`, `clamp` | nested product of stages, re-clamped |
 
-## SLM pre-filter (the "ceiling")
+---
 
-Because every multiplier and gate is deterministic, a candidate's best *possible* score is
-exact: `ceiling = base_score(=1.0) x all multiplier stages x integrity penalties`, with
-gates assumed 1.0 (over-estimate, so it never drops a viable candidate). Precompute runs
-the SLM only on candidates whose ceiling `>= --slm-ceiling` (default 0.02); the rest keep
-null SLM columns, score ~0, and stay ranked. This avoids spending GPU time on candidates
-that cannot reach the top N even with a perfect model result. See
-[precompute.md](precompute.md).
+## Predicate language
 
-## Tuning workflow
+`when` clauses in the policy JSON are a small recursive boolean language. They compile to
+`pl.Expr` via `src/ranking/predicate.py:compile_predicate` so the whole pool evaluates in
+one vectorized pass.
 
-- Numeric knobs (weights, multiplier bands, gate multipliers, thresholds) — re-run the
-  **ranker** only (seconds).
-- Lookup membership / normalization — re-run the **CPU feature build**
-  (`precompute --no-slm`, no GPU, preserves cached SLM facts).
-- The SLM step is the only expensive part, and it is incremental/resumable.
+```mermaid
+graph TD
+    P[Predicate] --> FL["FlagLeaf\n{ flag: 'owns_ranking_prod', negate: false }"]
+    P --> ML["MetricLeaf\n{ metric: 'notice_period_days', op: '<', value: 60 }"]
+    P --> NT["NotNode\n{ not: <Predicate> }"]
+    P --> AL["AllNode\n{ all: [<Predicate>, ...] }  → AND"]
+    P --> AN["AnyNode\n{ any: [<Predicate>, ...] }  → OR"]
+```
 
-## Missing SLM facts
+Null SLM flags are filled with `False` before compilation (`fill_null(False)`), so absent
+facts contribute nothing and fire no disqualifier — the policy's `uncertain_treatment`.
 
-The ranker defaults absent SLM flags via the policy's `uncertain_treatment` (positive ->
-`false`, disqualifier -> does not fire), yielding a valid deterministic-only ranking. The
-real scored run ships a complete Parquet, so it never relies on this; the path exists for a
-fresh CPU-only sandbox (`precompute --no-slm` then rank).
+---
+
+## SLM pre-filter (the ceiling)
+
+Because every multiplier and gate is deterministic, the best possible score for a candidate
+is exactly:
+
+```
+ceiling = 1.0 (best-case base_score)
+          × Π(each multiplier at its actual deterministic feature values)
+          × Π(integrity penalties at actual values)
+          [gates assumed 1.0 — an overestimate, so safe]
+```
+
+This is computed by `scorer.py:ceiling_expr`. Precompute runs the SLM only for candidates
+whose `ceiling >= --slm-ceiling` (default 0.02). Skipped candidates keep null SLM columns,
+score ~0, and stay ranked. The ceiling is an exact upper bound: a skipped candidate cannot
+reach the top-N even with a perfect SLM result.
+
+```mermaid
+flowchart LR
+    A[all 100k candidates] --> B{ceiling\n>= 0.02?}
+    B -->|yes ~22k| C[SLM inference\nQwen3-4B]
+    B -->|no ~78k| D[null SLM cols\nscore ~ 0\nstill ranked]
+    C --> E[features.parquet\nfull 100k rows]
+    D --> E
+```
+
+---
+
+## Resumable / incremental SLM
+
+The SLM stage checkpoints every `--batch-size` (default 1000) candidates by writing the
+parquet. On re-run without `--force`, it reads cached facts from the existing parquet and
+only computes `selected − cached`. Cancelling loses at most one in-flight batch.
+
+```mermaid
+sequenceDiagram
+    participant M as precompute/main.py
+    participant P as features.parquet
+    participant R as SlmRunner (vLLM)
+
+    M->>P: existing_slm_facts() — read cached
+    M->>M: todo = selected − cached
+    loop for each batch of 1000
+        M->>R: generate(batch)
+        R-->>M: facts[]
+        M->>P: apply_slm_facts + write_parquet (checkpoint)
+    end
+```
+
+`--no-slm` re-derives deterministic features on CPU while **preserving** cached SLM facts
+(merges them back via `apply_slm_facts` before writing).
+
+---
+
+## Tie-break
+
+Within equal scores the ranker applies the policy's declared `tie_break` field in order:
+`career_substance desc`, then `candidate_id asc` (deterministic). Implemented as a
+multi-key sort in `ranking/main.py:rank`.

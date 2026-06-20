@@ -1,85 +1,109 @@
 # candidate-ranker
 
-Ranks the top *N* candidates (default 100) for a single job from a candidate pool and
-writes a `candidate_id,rank,score,reasoning` CSV. The job's scoring policy is a
-deterministic engine; the ~33 boolean judgments per candidate that need to read free text
-come from a small language model. The work is split so the expensive part runs ahead of
-time and the scored run is fast and reproducible on CPU.
+Ranks the top N candidates (default 100) from a pool for a single ML engineering role and
+writes `candidate_id,rank,score,reasoning` as a CSV. Designed for the Redrob Hackathon v4:
+100k candidates, one job description, reproducible results on CPU in under 5 minutes.
 
-## Two stages
+---
 
-```
-precompute (GPU + network, no time limit)  ->  artifacts/<pool>/features.parquet
-ranking    (CPU, no network, <=5 min, <=16 GB RAM)  ->  submission.csv
-```
+## How it works
 
-- **Precompute** parses the pool, normalizes fields, computes every deterministic feature
-  and integrity signal, and runs the SLM for the boolean facts — one typed row per
-  candidate, written to Parquet.
-- **Ranking** scans that Parquet, compiles the entire policy into vectorized Polars
-  expressions, sorts with the policy tie-break, and emits the top-N with grounded
-  reasoning. No JSON parsing, no model, no network.
-
-How it all fits together: [docs/architecture.md](docs/architecture.md).
-
-## Install
-
-Python 3.12.
+Two stages with a Parquet handoff:
 
 ```
-# Ranking stage (CPU-only) and shared dependencies
-python -m venv .venv
+precompute (GPU + network)     →     artifacts/<pool>/features.parquet
+ranking    (CPU · ≤5 min · ≤16 GB · no network)     →     submission.csv
+```
+
+**Precompute** parses the candidate pool, normalizes noisy fields, computes every
+deterministic feature and integrity signal, and runs a small language model (Qwen3-4B) to
+get ~33 boolean judgments per candidate. Everything lands in one flat Parquet file — one
+row per candidate.
+
+**Ranking** scans that Parquet, compiles the entire scoring policy into vectorized Polars
+expressions, scores all 100k candidates in a single pass, and emits the top-N rows with
+grounded reasoning text. No JSON, no model, no network at this stage.
+
+→ Full details: [docs/architecture.md](docs/architecture.md)
+
+---
+
+## Quick start
+
+### 1 — Install (CPU ranking environment)
+
+```bash
+python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-The precompute stage needs a GPU and a CUDA-matched vLLM build — see
-[docs/precompute.md](docs/precompute.md).
+For GPU precompute, see [docs/precompute.md](docs/precompute.md).
 
-## Run
+### 2 — Parse the policy
 
-1. Validate the job policy + integrity layer into artifacts (once; re-run after editing
-   either source):
+```bash
+python -m src.jd_parser.parse
+```
 
-   ```
-   python -m src.jd_parser.parse
-   ```
+Validates `assets/job/jd_parsed.json` and `assets/integrity/penalties.json` and writes
+three artifacts to `artifacts/tuning/`. Run once; re-run whenever you edit either source.
 
-2. Precompute features for a pool (`sample` / `1k` / `100k`):
+### 3 — Precompute features
 
-   ```
-   ./precompute.sh --pool 100k --dtype half          # GPU box
-   ./precompute.sh --pool sample --no-slm             # CPU-only: deterministic features
-   ```
+```bash
+# CPU-only (deterministic features, no SLM) — works in .venv
+./precompute.sh --pool sample --no-slm
 
-3. Rank and write the submission:
+# Full run with SLM on the GPU box
+PYTHON=.venv-gpu/bin/python ./precompute.sh --pool 100k --dtype half
+```
 
-   ```
-   ./ranker.sh --pool 100k --out artifacts/100k/submission.csv
-   ```
+### 4 — Rank
 
-`./ranker.sh` wraps `python -m src.ranking.main`; useful flags: `--candidates <file>`,
-`--top N`, `--debug` (writes the full scored ranking to `debug.jsonl`). Pools resolve to
-`assets/candidates/<pool>_pool.{jsonl,json}`.
+```bash
+./ranker.sh --pool 100k
+./ranker.sh --pool 100k --out artifacts/100k/submission.csv --debug
+```
 
-A fresh CPU-only environment can run end to end with no GPU: `precompute --no-slm` then
-`ranker` produces a valid deterministic-only ranking (SLM flags defaulted by the policy).
+### 5 — Validate submission
 
-## Layout
+```bash
+python -m src.features.validate_submission artifacts/100k/submission.csv
+```
+
+---
+
+## Repository layout
 
 ```
-assets/           inputs: candidate pools, job policy, integrity penalties, schema
+assets/
+  job/jd_parsed.json          scoring policy (job-specific)
+  integrity/penalties.json    plausibility penalties (job-agnostic)
+  candidates/                 100k_pool.jsonl · 1k_pool.jsonl · sample_pool.json
+  schema/candidate_schema.json
 src/
-  jd_parser/      validate JD + integrity source -> artifacts/tuning/*
-  features/       deterministic feature derivation, integrity signals, utilities
-  precompute/     parse + features + SLM -> features.parquet
-  ranking/        compile policy -> score -> top-N CSV + reasoning
-artifacts/        generated (gitignored): tuning/*, <pool>/features.parquet, submission.csv
+  jd_parser/parse.py          validate policy sources → write artifacts/tuning/*
+  models/                     Pydantic models: Candidate · Policy · Tuning · features
+  features/                   normalize · metrics · derive · integrity · build · utilities
+  precompute/                 parse pool → deterministic features → SLM → parquet
+  ranking/                    compile policy → score → top-N CSV + reasoning
+artifacts/                    generated (gitignored)
+  tuning/                     tuning.json · slm_questions.json · integrity.json
+  <pool>/                     features.parquet · submission.csv · debug.jsonl
+precompute.sh                 wraps python -m src.precompute.main
+ranker.sh                     wraps python -m src.ranking.main
+requirements.txt              CPU ranking deps (pydantic · polars · orjson)
+requirements-gpu.txt          GPU precompute deps (vllm · transformers · hf_hub)
 ```
 
-## Docs
+---
 
-- [docs/architecture.md](docs/architecture.md) — scoring policy, vectorized compilation,
-  the SLM pre-filter ceiling, tuning workflow.
-- [docs/precompute.md](docs/precompute.md) — GPU setup, the SLM stage, incremental/resumable
-  runs, flags, and the one-shot evidence repair utility.
-- [docs/integrity.md](docs/integrity.md) — the job-agnostic plausibility penalty layer.
+## Documentation
+
+| doc | covers |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | end-to-end data flow · scoring formula · multiplier types · predicate language · SLM pre-filter ceiling · Mermaid diagrams |
+| [docs/precompute.md](docs/precompute.md) | GPU setup · vLLM + Qwen3-4B · SLM question schema · incremental/resumable runs · all flags · evidence repair |
+| [docs/ranker.md](docs/ranker.md) | ranking step in detail · all CLI flags · scoring stages · reasoning composition · debug output |
+| [docs/features.md](docs/features.md) | every file in src/features/ — normalize · metrics · derive · integrity · build · repair_evidence · export_csv · validate_submission |
+| [docs/integrity.md](docs/integrity.md) | job-agnostic plausibility layer — design rationale · signals · penalty compounding · tuning |
