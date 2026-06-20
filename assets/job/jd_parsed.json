@@ -1,5 +1,6 @@
 {
   "policy_version": "4.0",
+  "$schema": "../schema/jd_schema.json",
   "job_id": "redrob_senior_ai_engineer_founding",
   "evaluator_contract": {
     "predicate": "leaf {flag:name} | {flag:name,negate} via {not:{flag}} | {metric:name,op:'<|<=|>|>=|==|!=',value:X} ; node {all:[...]} | {any:[...]} | {not:pred}",

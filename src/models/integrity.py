@@ -42,8 +42,9 @@ class IntegrityFeatures(BaseModel):
 class IntegrityPolicy(BaseModel):
     """The parsed integrity layer: tunable params, declared features, and penalty stages."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
+    schema_: str | None = Field(None, alias="$schema")
     version: str
     description: str = ""
     # Normalized skill/tool name -> earliest year the tool plausibly existed. A skill whose

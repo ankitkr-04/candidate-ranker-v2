@@ -1,0 +1,395 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PenaltiesConfig",
+    "description": "Job-agnostic profile-integrity penalty config. Applied as multiplicative penalties after JD scoring.",
+    "type": "object",
+    "required": [
+        "version",
+        "description",
+        "tool_eras",
+        "params",
+        "features",
+        "penalties"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "format": "uri-reference",
+            "description": "Reference to the JSON Schema."
+        },
+        "version": {
+            "type": "string",
+            "description": "Schema version string, e.g. '1.0'"
+        },
+        "description": {
+            "type": "string"
+        },
+        "tool_eras": {
+            "type": "object",
+            "description": "skill_name_lowercase -> first_year_it_existed. Used for anachronism detection.",
+            "additionalProperties": {
+                "type": "integer"
+            }
+        },
+        "params": {
+            "type": "object",
+            "required": [
+                "overrun_slack_months",
+                "seniority_min_rank"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "overrun_slack_months": {
+                    "type": "number",
+                    "description": "Grace window in months before career/role duration overrun flags fire"
+                },
+                "seniority_min_rank": {
+                    "type": "integer",
+                    "description": "Minimum title seniority rank that triggers senior_title_pre_graduation"
+                }
+            }
+        },
+        "features": {
+            "type": "object",
+            "required": [
+                "flags",
+                "metrics"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "flags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Boolean integrity flags the integrity layer can produce. Referenced in conditional cases."
+                },
+                "metrics": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Numeric integrity metrics the integrity layer can produce. Referenced in decay stages."
+                }
+            }
+        },
+        "penalties": {
+            "type": "array",
+            "description": "Ordered penalty stages. Each returns a multiplier in (0,1] applied to the running score.",
+            "items": {
+                "$ref": "#/definitions/Stage"
+            }
+        }
+    },
+    "definitions": {
+        "Predicate": {
+            "description": "Boolean condition over flags and/or metrics.",
+            "oneOf": [
+                {
+                    "title": "FlagCheck",
+                    "type": "object",
+                    "required": [
+                        "flag"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "flag": {
+                            "type": "string"
+                        },
+                        "negate": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                {
+                    "title": "MetricCheck",
+                    "type": "object",
+                    "required": [
+                        "metric",
+                        "op",
+                        "value"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "metric": {
+                            "type": "string"
+                        },
+                        "op": {
+                            "type": "string",
+                            "enum": [
+                                "<",
+                                "<=",
+                                ">",
+                                ">=",
+                                "==",
+                                "!="
+                            ]
+                        },
+                        "value": {
+                            "type": "number"
+                        }
+                    }
+                },
+                {
+                    "title": "All",
+                    "type": "object",
+                    "required": [
+                        "all"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "all": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Predicate"
+                            },
+                            "minItems": 1
+                        }
+                    }
+                },
+                {
+                    "title": "Any",
+                    "type": "object",
+                    "required": [
+                        "any"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "any": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Predicate"
+                            },
+                            "minItems": 1
+                        }
+                    }
+                },
+                {
+                    "title": "Not",
+                    "type": "object",
+                    "required": [
+                        "not"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "not": {
+                            "$ref": "#/definitions/Predicate"
+                        }
+                    }
+                }
+            ]
+        },
+        "ConditionalCase": {
+            "type": "object",
+            "required": [
+                "when",
+                "value"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "when": {
+                    "$ref": "#/definitions/Predicate"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "Band": {
+            "type": "object",
+            "required": [
+                "value"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "at": {
+                    "description": "Threshold for this band. null acts as catch-all default.",
+                    "oneOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "Stage": {
+            "description": "A single scoring stage returning a numeric multiplier.",
+            "oneOf": [
+                {
+                    "title": "ConditionalStage",
+                    "description": "First case whose predicate is true -> value; else default.",
+                    "type": "object",
+                    "required": [
+                        "id",
+                        "type",
+                        "default",
+                        "cases"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "const": "conditional"
+                        },
+                        "default": {
+                            "type": "number"
+                        },
+                        "cases": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ConditionalCase"
+                            }
+                        }
+                    }
+                },
+                {
+                    "title": "DecayStage",
+                    "description": "value = max(floor, base ** feature). Used for count-based penalties.",
+                    "type": "object",
+                    "required": [
+                        "id",
+                        "type",
+                        "feature",
+                        "base",
+                        "floor"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "const": "decay"
+                        },
+                        "feature": {
+                            "type": "string",
+                            "description": "Must reference a metric in features.metrics"
+                        },
+                        "base": {
+                            "type": "number",
+                            "description": "< 1.0; each unit of count multiplies score by base"
+                        },
+                        "floor": {
+                            "type": "number",
+                            "description": "Minimum multiplier regardless of count"
+                        }
+                    }
+                },
+                {
+                    "title": "LookupStage",
+                    "description": "value = map[feature] else default.",
+                    "type": "object",
+                    "required": [
+                        "id",
+                        "type",
+                        "feature",
+                        "map",
+                        "default"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "const": "lookup"
+                        },
+                        "feature": {
+                            "type": "string"
+                        },
+                        "map": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "number"
+                            }
+                        },
+                        "default": {
+                            "type": "number"
+                        }
+                    }
+                },
+                {
+                    "title": "CurveStage",
+                    "description": "Step function over sorted bands. direction=min: first band where feature>=at. direction=max: first band where feature<=at. at=null is catch-all.",
+                    "type": "object",
+                    "required": [
+                        "id",
+                        "type",
+                        "feature",
+                        "direction",
+                        "bands"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "const": "curve"
+                        },
+                        "feature": {
+                            "type": "string"
+                        },
+                        "direction": {
+                            "type": "string",
+                            "enum": [
+                                "min",
+                                "max"
+                            ]
+                        },
+                        "bands": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Band"
+                            },
+                            "minItems": 1
+                        }
+                    }
+                },
+                {
+                    "title": "CompositeProductStage",
+                    "description": "Product of member stages, then clamped.",
+                    "type": "object",
+                    "required": [
+                        "id",
+                        "type",
+                        "members"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "const": "composite_product"
+                        },
+                        "clamp": {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                        },
+                        "members": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Stage"
+                            },
+                            "minItems": 1
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

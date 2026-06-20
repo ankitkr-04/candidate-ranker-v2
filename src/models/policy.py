@@ -273,8 +273,10 @@ class EvaluatorContract(BaseModel):
 
 class Policy(BaseModel):
     # Forbid unknown top-level keys: a new section in the JD should be a conscious
-    # code change, not a silently ignored field.
-    model_config = ConfigDict(extra="forbid")
+    # code change, not a silently ignored field. populate_by_name lets $schema alias work.
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    schema_: str | None = Field(None, alias="$schema")
 
     policy_version: str
     job_id: str
