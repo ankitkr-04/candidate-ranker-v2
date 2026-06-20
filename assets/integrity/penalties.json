@@ -19,7 +19,16 @@
     "qdrant": 2021,
     "milvus": 2019,
     "sentence transformers": 2019,
-    "semantic search": 2019
+    "semantic search": 2019,
+    "hugging face transformers": 2019,
+    "faiss": 2017,
+    "mlflow": 2018,
+    "haystack": 2019,
+    "bentoml": 2019,
+    "kubeflow": 2017,
+    "diffusion models": 2021,
+    "pgvector": 2021,
+    "opensearch": 2021
   },
   "params": {
     "overrun_slack_months": 18.0,
@@ -46,7 +55,9 @@
       "default": 1.0,
       "cases": [
         {
-          "when": { "flag": "end_before_start" },
+          "when": {
+            "flag": "end_before_start"
+          },
           "value": 0.4
         }
       ]
@@ -57,7 +68,9 @@
       "default": 1.0,
       "cases": [
         {
-          "when": { "flag": "career_months_overrun" },
+          "when": {
+            "flag": "career_months_overrun"
+          },
           "value": 0.9
         }
       ]
@@ -68,7 +81,9 @@
       "default": 1.0,
       "cases": [
         {
-          "when": { "flag": "role_months_overrun" },
+          "when": {
+            "flag": "role_months_overrun"
+          },
           "value": 0.85
         }
       ]
@@ -79,7 +94,9 @@
       "default": 1.0,
       "cases": [
         {
-          "when": { "flag": "current_role_date_conflict" },
+          "when": {
+            "flag": "current_role_date_conflict"
+          },
           "value": 0.85
         }
       ]
@@ -111,7 +128,9 @@
       "default": 1.0,
       "cases": [
         {
-          "when": { "flag": "senior_title_pre_graduation" },
+          "when": {
+            "flag": "senior_title_pre_graduation"
+          },
           "value": 0.85
         }
       ]
