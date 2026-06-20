@@ -249,6 +249,6 @@ sequenceDiagram
 
 ## Tie-break
 
-Within equal scores the ranker applies the policy's declared `tie_break` field in order:
-`career_substance desc`, then `candidate_id asc` (deterministic). Implemented as a
-multi-key sort in `ranking/main.py:rank`.
+Within equal scores the ranker uses `candidate_id asc` as the sole tie-breaker.
+`candidate_id` is unique, so the sort is fully deterministic. Implemented as a
+two-key sort in `ranking/main.py:rank`.

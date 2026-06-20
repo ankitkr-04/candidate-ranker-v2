@@ -20,7 +20,7 @@ from src.models.integrity import IntegrityPolicy, load_integrity
 from src.models.tuning import Tuning
 from src.paths import TUNING_ARTIFACT_DIR, pool_artifact_dir
 from src.ranking.reasoning import compose_reasoning
-from src.ranking.scorer import CAREER_SUBSTANCE, SCORE, score_frame
+from src.ranking.scorer import SCORE, score_frame
 
 SUBMISSION_COLUMNS = ["candidate_id", "rank", "score", "reasoning"]
 
@@ -52,10 +52,10 @@ def rank(
 ) -> pl.DataFrame:
     """Score and order the full frame; return it ranked (every candidate kept)."""
     scored = score_frame(frame, tuning, integrity)
-    # Primary order is score; the policy's tie-break resolves equal scores.
+    # Primary order is score; candidate_id asc breaks ties deterministically.
     ranked = scored.sort(
-        [SCORE, CAREER_SUBSTANCE, "candidate_id"],
-        descending=[True, True, False],
+        [SCORE, "candidate_id"],
+        descending=[True, False],
     ).with_row_index("rank", offset=1)
     return ranked
 

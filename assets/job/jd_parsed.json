@@ -18,7 +18,6 @@
       "disqualifier_flag_cannot_determine": "do_not_fire"
     },
     "tie_break": [
-      "career_substance desc",
       "candidate_id asc"
     ]
   },
