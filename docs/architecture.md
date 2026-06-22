@@ -88,7 +88,7 @@ candidate_id          String         primary key
 ─── deterministic flags (Boolean) ───────────────────────────────
 current_is_services   has_ai_native   has_product_company
 majority_career_services   titles_escalating   is_local
-prefers_remote   open_to_work_flag   recent_nonml_pivot
+prefers_remote   open_to_work_flag   enterprise_lifer
 ─── integrity flags (Boolean) ────────────────────────────────────
 end_before_start   career_months_overrun   role_months_overrun
 current_role_date_conflict   senior_title_pre_graduation
@@ -99,7 +99,7 @@ ltr_experience   reranker_twostage   llm_finetuning
 realtime_ml_serving   prod_ml_ops   hrtech_or_marketplace_exp
 external_validation   manager_not_builder   research_not_applied
 primarily_adjacent   observer_not_owner   llm_api_wrapper_only
-recent_llm_only_lt12mo   is_hobbyist_or_self_learner
+pre_llm_ml_production   is_hobbyist_or_self_learner
 cv_dominant   speech_dominant   robotics_dominant   ...
 ─── metrics (Float64) ────────────────────────────────────────────
 years_of_experience   applied_ml_years
@@ -182,7 +182,7 @@ one vectorized pass.
 ```mermaid
 graph TD
     P[Predicate] --> FL["FlagLeaf\n{ flag: 'owns_ranking_prod', negate: false }"]
-    P --> ML["MetricLeaf\n{ metric: 'notice_period_days', op: '<', value: 60 }"]
+    P --> ML["MetricLeaf\n{ metric: 'current_role_duration_months', op: '>=', value: 18 }"]
     P --> NT["NotNode\n{ not: <Predicate> }"]
     P --> AL["AllNode\n{ all: [<Predicate>, ...] }  → AND"]
     P --> AN["AnyNode\n{ any: [<Predicate>, ...] }  → OR"]

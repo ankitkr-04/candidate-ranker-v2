@@ -98,6 +98,7 @@ Later tier-checks override earlier ones, so "senior engineering manager" → 4.
 | `has_ai_native` | any career role at an `ai_native` company |
 | `has_product_company` | any career role at any company in `product_set` (expands to named category members) |
 | `majority_career_services` | >50% of total career months spent at IT-services companies |
+| `enterprise_lifer` | every career role at a `10001+`-size employer (≥2 roles) — the whole-career big-enterprise tenure the JD warns against |
 
 ### Location / title flags
 
@@ -105,7 +106,6 @@ Later tier-checks override earlier ones, so "senior engineering manager" → 4.
 |---|---|
 | `is_local` | current city is in `local_cities` lookup |
 | `titles_escalating` | seniority ranks of the 3 most recent roles are strictly increasing (oldest→newest) |
-| `recent_nonml_pivot` | current title is a non-ML title AND a prior role has a full-ML title (pivot detection) |
 
 ### Categoricals and metrics
 

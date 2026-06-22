@@ -72,15 +72,6 @@ class FeatureDeriver:
             for name in tier.titles:
                 self._title_factor[normalize_title(name)] = tier.factor
 
-        full = title.career_ml_credit.get("full")
-        self._full_ml_titles = {normalize_title(t) for t in (full.titles if full else [])}
-        # Current-title groups that read as non-ML, used for pivot detection.
-        self._nonml_titles: set[str] = set()
-        for group in ("zero_always", "neutral_read_description"):
-            tier = title.career_ml_credit.get(group)
-            if tier:
-                self._nonml_titles.update(normalize_title(t) for t in tier.titles)
-
         self._qualifying_skills = {normalize_token(s) for s in tuning.skill_booster.qualifying}
 
     # Company-based flags ----------------------------------------------------
@@ -105,6 +96,16 @@ class FeatureDeriver:
         )
         return (services / total) > 0.5
 
+    def enterprise_lifer(self, c: Candidate) -> bool:
+        # The JD warns against whole-career big-enterprise tenure ("if you've spent
+        # your career at Google or Meta ... this isn't it"). Fire only when every role
+        # is at a 10001+ employer and there are at least two, so a single big-company
+        # stint among smaller ones does not trip it.
+        roles = c.career_history
+        if len(roles) < 2:
+            return False
+        return all(r.company_size == "10001+" for r in roles)
+
     # Location / title flags -------------------------------------------------
 
     def is_local(self, c: Candidate) -> bool:
@@ -116,11 +117,6 @@ class FeatureDeriver:
             return False
         ranks = [_seniority_rank(r.title) for r in reversed(recent)]  # oldest -> newest
         return all(later > earlier for earlier, later in zip(ranks, ranks[1:]))
-
-    def recent_nonml_pivot(self, c: Candidate) -> bool:
-        if normalize_title(c.profile.current_title) not in self._nonml_titles:
-            return False
-        return any(normalize_title(r.title) in self._full_ml_titles for r in c.career_history[1:])
 
     # Metrics / categoricals -------------------------------------------------
 

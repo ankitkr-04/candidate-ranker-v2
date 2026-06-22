@@ -36,7 +36,7 @@ def build_feature_row(
             "is_local": deriver.is_local(candidate),
             "prefers_remote": signals.preferred_work_mode == "remote",
             "open_to_work_flag": signals.open_to_work_flag,
-            "recent_nonml_pivot": deriver.recent_nonml_pivot(candidate),
+            "enterprise_lifer": deriver.enterprise_lifer(candidate),
         }
     )
 

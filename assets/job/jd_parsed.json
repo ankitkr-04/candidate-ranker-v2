@@ -52,9 +52,7 @@
         "nlp_ir_significant",
         "research_not_applied",
         "ic_role",
-        "no_prod_code_recent",
         "llm_api_wrapper_only",
-        "recent_llm_only_lt12mo",
         "pre_llm_ml_production",
         "is_hobbyist_or_self_learner"
       ],
@@ -67,7 +65,7 @@
         "is_local": "normalized location in lookups.location.local_cities",
         "prefers_remote": "redrob_signals.preferred_work_mode == 'remote'",
         "open_to_work_flag": "redrob_signals.open_to_work_flag",
-        "recent_nonml_pivot": "current_title in (zero_always | neutral_read_description) AND an earlier title in career_ml_credit.full"
+        "enterprise_lifer": "every career role at a 10001+ employer (>=2 roles); whole-career big-enterprise tenure the JD warns against"
       }
     },
     "metrics": {
@@ -121,11 +119,11 @@
   },
   "career_substance": {
     "additive": {
-      "owns_retrieval_prod": 0.28,
-      "owns_eval_framework": 0.2,
-      "owns_ranking_prod": 0.16,
-      "vector_db_prod": 0.12,
-      "shipped_endtoend_at_scale": 0.1,
+      "owns_retrieval_prod": 0.22,
+      "owns_eval_framework": 0.18,
+      "owns_ranking_prod": 0.14,
+      "vector_db_prod": 0.10,
+      "shipped_endtoend_at_scale": 0.06,
       "retrieval_ops_depth": 0.08,
       "ltr_experience": 0.06,
       "reranker_twostage": 0.05,
@@ -209,6 +207,7 @@
       "learning to rank",
       "bm25",
       "pgvector",
+      "pinecone",
       "weaviate",
       "milvus",
       "qdrant",
@@ -233,7 +232,6 @@
       "embeddings",
       "vector search",
       "semantic search",
-      "pinecone",
       "prompt engineering",
       "sentence transformers",
       "hugging face transformers",
@@ -311,6 +309,19 @@
       ]
     },
     {
+      "id": "enterprise_lifer_overlay",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": {
+            "flag": "enterprise_lifer"
+          },
+          "value": 0.7
+        }
+      ]
+    },
+    {
       "id": "experience_band",
       "type": "curve",
       "feature": "years_of_experience",
@@ -361,13 +372,13 @@
       "map": {
         "local": 1.0,
         "tier1_relocating": 0.88,
-        "tier1_not_relocating": 0.3,
+        "tier1_not_relocating": 0.6,
         "other_india_relocating": 0.75,
-        "other_india_not_relocating": 0.1,
+        "other_india_not_relocating": 0.4,
         "outside_relocating": 0.15,
         "outside_not_relocating": 0.04
       },
-      "default": 0.1
+      "default": 0.4
     },
     {
       "id": "work_mode_overlay",
@@ -536,20 +547,24 @@
       "direction": "max",
       "bands": [
         {
-          "at": 30,
+          "at": 60,
           "value": 1.0
         },
         {
-          "at": 60,
-          "value": 0.95
+          "at": 75,
+          "value": 0.85
         },
         {
           "at": 90,
-          "value": 0.9
+          "value": 0.70
+        },
+        {
+          "at": 120,
+          "value": 0.50
         },
         {
           "at": null,
-          "value": 0.82
+          "value": 0.40
         }
       ]
     },
@@ -637,9 +652,6 @@
             "flag": "llm_api_wrapper_only"
           },
           {
-            "flag": "recent_llm_only_lt12mo"
-          },
-          {
             "not": {
               "flag": "pre_llm_ml_production"
             }
@@ -653,7 +665,9 @@
       "when": {
         "all": [
           {
-            "flag": "no_prod_code_recent"
+            "metric": "current_role_duration_months",
+            "op": ">=",
+            "value": 18
           },
           {
             "any": [
@@ -1028,16 +1042,8 @@
         "q": "Is the candidate currently an individual contributor who writes code, as opposed to a pure architecture/tech-lead role?"
       },
       {
-        "id": "no_prod_code_recent",
-        "q": "Has the candidate NOT written production code in roughly the last 18 months (moved into architecture/tech-lead/management)?"
-      },
-      {
         "id": "llm_api_wrapper_only",
         "q": "Is the candidate's AI experience primarily calling hosted LLM APIs / LangChain wrappers rather than building ML systems?"
-      },
-      {
-        "id": "recent_llm_only_lt12mo",
-        "q": "Is that LLM-wrapper work recent (under ~12 months) with no deeper ML history before it?"
       },
       {
         "id": "pre_llm_ml_production",
