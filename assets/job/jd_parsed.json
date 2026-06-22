@@ -328,6 +328,14 @@
       "direction": "min",
       "bands": [
         {
+          "at": 14,
+          "value": 0.95
+        },
+        {
+          "at": 11,
+          "value": 0.98
+        },
+        {
           "at": 4,
           "value": 1.0
         },
