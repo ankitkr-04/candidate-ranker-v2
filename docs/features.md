@@ -148,6 +148,7 @@ See [integrity.md](integrity.md) for the full design rationale. The signals it p
 |---|---|
 | `num_education_overlaps` | pairs of education spans that overlap |
 | `num_skill_anomalies` | skills whose `duration_months > years_of_experience × 12` |
+| `num_proficiency_anomalies` | skills marked `expert`/`advanced` with `duration_months == 0` |
 | `num_skill_anachronisms` | skills in `tool_eras` whose implied start year precedes the tool's era |
 
 `implied_start_year = reference_year − duration_months / 12`

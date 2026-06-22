@@ -23,6 +23,7 @@ class IntegrityDeriver:
         self._slack = integrity.params.overrun_slack_months
         self._min_senior_rank = integrity.params.seniority_min_rank
         self._tool_eras = {normalize_token(name): year for name, year in integrity.tool_eras.items()}
+        self._high_proficiency = {"expert", "advanced"}
         self._flags = list(integrity.features.flags)
         self._metrics = list(integrity.features.metrics)
 
@@ -101,6 +102,19 @@ class IntegrityDeriver:
             )
         )
 
+    def num_proficiency_anomalies(self, candidate: Candidate) -> float:
+        # A high proficiency claim with zero recorded use is implausible: you cannot be
+        # expert/advanced at a tool you have used for 0 months. Generic data-quality check
+        # (legitimate skills always carry a duration), not a honeypot special-case.
+        return float(
+            sum(
+                1
+                for s in candidate.skills
+                if normalize_token(s.proficiency or "") in self._high_proficiency
+                and not s.duration_months
+            )
+        )
+
     def num_skill_anachronisms(self, candidate: Candidate, reference_year: int) -> float:
         # Skills whose implied first-use year precedes the year the tool plausibly existed.
         # Only skills named in tool_eras are checked; the rest are ignored.
@@ -127,6 +141,7 @@ class IntegrityDeriver:
             "senior_title_pre_graduation": self.senior_title_pre_graduation(candidate),
             "num_education_overlaps": self.num_education_overlaps(candidate),
             "num_skill_anomalies": self.num_skill_anomalies(candidate),
+            "num_proficiency_anomalies": self.num_proficiency_anomalies(candidate),
             "num_skill_anachronisms": self.num_skill_anachronisms(candidate, reference.year),
         }
         # Return only the columns the policy declares, so the asset stays the source of truth.

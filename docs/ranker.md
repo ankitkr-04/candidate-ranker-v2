@@ -52,13 +52,10 @@ flowchart TD
     D --> E[skill_booster_expr\nper_skill × qualifying_skills\nif career_substance >= 0.6]
     E --> F[base_score\nclamp career_substance + skill_booster 0..1]
     F --> G[JD multiplier stages\n13 stages → mult__<id> columns]
-    G --> H[integrity penalty stages\n8 stages → mult__<id> columns]
+    G --> H[integrity penalty stages\n9 stages → mult__<id> columns]
     H --> I[hard gates\n4 gates → gate__<id> columns]
     I --> J[score = base_score\n× Π all stage cols]
-    J --> K{any hp_* flag?}
-    K -->|yes| L[score → 0\nstill ranked]
-    K -->|no| M[sort: score desc\ncareer_substance desc\ncandidate_id asc]
-    L --> M
+    J --> M[sort: score desc\ncandidate_id asc]
     M --> N[head top-N\nassign rank 1..N]
     N --> O[compose_reasoning\nPython loop over ≤100 rows]
     O --> P[write submission.csv]
@@ -116,18 +113,14 @@ Compiled identically to multiplier stages but stored as `gate__<id>` columns. A 
 whose predicate fires multiplies the score by its `multiplier` (typically 0.12, a near-
 zero soft block rather than a hard remove).
 
-### Honeypot zeroing
+### Date-impossibility penalties
 
-After all multipliers and gates are applied:
-
-```
-when(any of hp_end_before_start, hp_career_overrun, hp_role_overrun, hp_flag_conflict)
-  → score = 0.0
-```
-
-These four flags catch date impossibilities (end before start, role tenure > experience,
-date conflict on current role). They are computed in `src/features/integrity.py` and stored
-in the parquet, so no SLM is needed to fire them.
+There is **no** hard zero / honeypot special-case. Date impossibilities (end before start,
+tenure overruns, current-role date conflicts) are computed in `src/features/integrity.py`,
+stored in the parquet (no SLM needed), and applied as **strong multiplicative penalties** in
+the integrity layer — `end_before_start` ×0.40 is the hardest. They compound with every other
+stage, so an impossible profile sinks far down the ranking without ever being removed. See
+[integrity.md](integrity.md) for the full penalty list.
 
 ---
 

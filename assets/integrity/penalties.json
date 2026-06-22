@@ -47,6 +47,7 @@
     "metrics": [
       "num_education_overlaps",
       "num_skill_anomalies",
+      "num_proficiency_anomalies",
       "num_skill_anachronisms"
     ]
   },
@@ -116,6 +117,13 @@
       "feature": "num_skill_anomalies",
       "base": 0.985,
       "floor": 0.93
+    },
+    {
+      "id": "proficiency_anomaly_penalty",
+      "type": "decay",
+      "feature": "num_proficiency_anomalies",
+      "base": 0.55,
+      "floor": 0.12
     },
     {
       "id": "skill_anachronism_penalty",

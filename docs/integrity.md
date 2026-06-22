@@ -82,7 +82,7 @@ thresholds):
   "features": {
     "flags": ["end_before_start", "career_months_overrun", "role_months_overrun",
               "current_role_date_conflict", "senior_title_pre_graduation"],
-    "metrics": ["num_education_overlaps", "num_skill_anomalies", "num_skill_anachronisms"]
+    "metrics": ["num_education_overlaps", "num_skill_anomalies", "num_proficiency_anomalies", "num_skill_anachronisms"]
   },
   "penalties": [ ... ]
 }
@@ -94,10 +94,10 @@ thresholds):
 
 All computed in `src/features/integrity.py:IntegrityDeriver`.
 
-### Date-consistency (flags → honeypot zeroing)
+### Date-consistency (flags → strong penalties)
 
-These fire on date arithmetic that is *impossible*, not just implausible. When any fires,
-the scorer zeroes the score (honeypot behaviour):
+These fire on date arithmetic that is *impossible*, not just implausible. Each drives a strong
+multiplicative penalty (not a hard zero — see the penalty stages below):
 
 | flag | condition |
 |---|---|
@@ -126,6 +126,7 @@ later completes a part-time MBA does not false-positive.
 |---|---|
 | `num_education_overlaps` | pairs of education spans whose year ranges overlap |
 | `num_skill_anomalies` | skills claiming more months of use than `yoe × 12` |
+| `num_proficiency_anomalies` | skills marked `expert`/`advanced` with `duration_months == 0` — high proficiency, zero recorded use (a hard impossibility; legitimate skills always carry a duration) |
 | `num_skill_anachronisms` | skills in `tool_eras` whose implied first-use year is before the tool existed: `reference_year − duration_months/12 < era_year` |
 
 `tool_eras` only covers skills explicitly listed in the map; unrecognized skills are
@@ -138,13 +139,17 @@ ignored. Adding a new tool = one line in `penalties.json`.
 Defined in the `penalties` array; compiled and applied by `scorer.py:score_frame` as
 ordinary multiplier stages (`mult__<id>` debug columns):
 
+Every stage is a multiplier — there is **no** hard zero / honeypot special-case. Hard
+impossibilities just get a strong multiplier; minor anomalies get a mild one. They compound
+into a ranking gradient, so an implausible profile sinks without being explicitly removed.
+
 ```mermaid
 graph LR
-    subgraph "Date-impossibility → honeypot zero"
-        H1[end_before_start] --> HZ[score = 0]
-        H2[career_months_overrun] --> HZ
-        H3[role_months_overrun] --> HZ
-        H4[current_role_date_conflict] --> HZ
+    subgraph "Hard impossibilities (strong multiplier)"
+        H1["end_before_start_penalty\nconditional: 0.40"]
+        H2["proficiency_anomaly_penalty\ndecay: 0.55^num_proficiency_anomalies, floor 0.12"]
+        H3["role_months_overrun / current_role_date_conflict\nconditional: 0.85"]
+        H4["career_months_overrun_penalty\nconditional: 0.90"]
     end
 
     subgraph "Soft compounding penalties"

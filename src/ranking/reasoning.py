@@ -69,6 +69,7 @@ INTEGRITY_COUNT_NOUNS = {
     "num_skill_anachronisms": "anachronistic skill",
     "num_education_overlaps": "education-date overlap",
     "num_skill_anomalies": "over-claimed skill",
+    "num_proficiency_anomalies": "unsupported expert-skill claim",
 }
 
 _SENTENCE_END = re.compile(r'[.!?]["\']?$')

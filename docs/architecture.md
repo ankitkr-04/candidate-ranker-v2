@@ -108,7 +108,7 @@ last_active_days   recruiter_response_rate   interview_completion_rate
 saved_by_recruiters_30d   applications_submitted_30d
 notice_period_days   github_activity_score
 num_qualifying_unevidenced_skills
-num_education_overlaps   num_skill_anomalies   num_skill_anachronisms
+num_education_overlaps   num_skill_anomalies   num_proficiency_anomalies   num_skill_anachronisms
 ─── categoricals (String) ────────────────────────────────────────
 current_title_bucket   location_relocation_bucket   verification_state
 ─── display fields (String / Boolean) ────────────────────────────
@@ -138,9 +138,8 @@ base_score       = clamp(career_substance + skill_booster, 0, 1)
 
 score            = base_score
                    × Π(JD multiplier stages)         ← all deterministic
-                   × Π(integrity penalty stages)     ← all deterministic
+                   × Π(integrity penalty stages)     ← all deterministic, no hard zero
                    × Π(hard gates)                   ← all deterministic
-                   [→ 0 if any hp_* honeypot flag fires]
 ```
 
 `career_substance` is the **only SLM-dependent part**. Its theoretical maximum is 1.0
