@@ -133,26 +133,32 @@ in the parquet, so no SLM is needed to fire them.
 
 ## Reasoning composition
 
-Reasoning runs in Python over the top-N rows **only** (≤100). Every sentence is grounded
-in values from the feature row — no invented facts.
+Reasoning runs in Python over the top-N rows **only** (≤100). Every clause is grounded in
+values from the feature row — no invented facts. The composition is tuned for the Stage-4
+manual review (specific facts, JD connection, honest concerns, no hallucination, variation,
+rank consistency).
 
 **Format:**
 ```
-<title> at <company>, ~<yoe> yrs experience (~<applied_ml_years> yrs applied ML).
-Strengths: <up to 3 SLM positive flags in plain English>.
-Concerns: <up to 3 concerns from flags + integrity + location + notice>.
-Evidence: "<evidence span from the SLM>".
+<verdict>. <title> at <company>, ~<yoe> yrs exp (~<applied_ml_years> yrs applied ML).
+Strengths: <one JD-core anchor + the candidate's distinctive specialisms>.
+Signals: <specific behavioural numbers — last-active, recruiter response, GitHub/saves>.
+Concerns: <honest gaps, with counts where available>.
+Evidence: "<verbatim career-history span, trimmed at a word boundary>".
 ```
 
 Sources used by `src/ranking/reasoning.py:compose_reasoning`:
+- `score` → `_verdict` ("Strong/Partial/Weak match"), so tone tracks rank (rank consistency)
 - `current_title`, `current_company`, `years_of_experience`, `applied_ml_years` — display fields
-- SLM positive flag columns → mapped to `POSITIVE_PHRASES`
-- SLM concern flag columns → mapped to `CONCERN_PHRASES`
-- `current_title_bucket` — "hard_sink" / "heavy_penalty" flags a non-ML title
-- `location_relocation_bucket` — flags non-local / not relocating
-- `notice_period_days` — flags ≥90 days
-- Integrity flags / counts — flags implausible profile signals
-- `evidence` — the SLM's one-line verbatim quote of the key career-history phrase
+- positive flags → `_select_strengths`: one anchor from `_ANCHOR_STRENGTHS` then the rarer
+  `_SPECIALIST_STRENGTHS` first, so similar candidates surface **different** skills (variation)
+- behavioural signals → `_engagement`: `last_active_days`, `recruiter_response_rate`,
+  `github_activity_score` / `saved_by_recruiters_30d` — per-candidate numbers the JD asks to weigh
+- concern flags → `CONCERN_PHRASES`; `current_title_bucket`, `location_relocation_bucket`,
+  `notice_period_days` (≥90); integrity flags, and count nouns (`INTEGRITY_COUNT_NOUNS`, e.g.
+  "2 anachronistic skills")
+- `evidence` → `_clean_quote`: the SLM's verbatim span, trimmed to a whole word with an `…`
+  marker so it never ends mid-token (the SLM cap is 320 chars; see `precompute/slm_input.py`)
 
 ---
 

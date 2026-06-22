@@ -38,7 +38,9 @@ def build_schema(questions: SlmQuestions) -> dict:
     """JSON schema for guided decoding; property order fixes the emission order."""
     properties: dict[str, dict] = {
         _SUBJECT: {"type": "string", "maxLength": 160},
-        _EVIDENCE: {"type": "string", "maxLength": 200},
+        # Roomy enough to hold a complete sentence so the quote is not cut mid-word
+        # in the reasoning display (reasoning.py also trims defensively).
+        _EVIDENCE: {"type": "string", "maxLength": 320},
     }
     for question in questions.ask:
         if question.id in (_SUBJECT, _EVIDENCE):
@@ -65,7 +67,8 @@ def build_messages(candidate: Candidate, questions: SlmQuestions) -> list[dict]:
         "candidate's career history. Do not assume facts that are not stated; when the history "
         "does not support a claim, answer false.\n\n"
         f"First, {_SUBJECT}: {subject_q}\n"
-        "Then give a one-line evidence span quoting the phrase you relied on.\n"
+        "Then give an evidence span: quote one complete sentence from the history that you "
+        "relied on. Quote it verbatim and do not stop mid-sentence.\n"
         "Then answer each question true or false:\n" + "\n".join(boolean_questions)
     )
     user = f"Career history:\n{career_history_text(candidate)}"
