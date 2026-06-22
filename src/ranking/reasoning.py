@@ -11,9 +11,9 @@ stays specific and never invents facts (Stage-4: no hallucination). The shape is
     Concerns: <honest gaps, with counts where we have them>.
     Evidence: "<verbatim career-history span, trimmed at a word boundary>".
 
-The verdict is keyed to the score so tone tracks rank; the per-candidate signal
-numbers and evidence span give each entry substantive variation rather than a
-shared template.
+The verdict is keyed to the final score (the value the ranking sorts on) so it is always
+monotonic with rank; the per-candidate signal numbers, evidence span, and the specific gaps
+in Concerns give each entry substantive variation rather than a shared template.
 """
 
 import re
@@ -115,12 +115,18 @@ def _plural(count: int, noun: str) -> str:
 
 
 def _verdict(score: float) -> str:
-    # Keyed to score so tone tracks rank (Stage-4 rank-consistency check).
-    if score >= 0.6:
+    # Keyed to the final score -- the value the ranking sorts on -- so the verdict is
+    # always monotonic with rank (rank 1 can never read below rank 100). The score is a
+    # compressed product of many sub-1.0 factors, so the bands are calibrated to its
+    # top-of-pool distribution; the logistic gaps that pulled it down are spelled out in
+    # the Signals/Concerns clauses.
+    if score >= 0.5:
         return "Strong match"
-    if score >= 0.35:
+    if score >= 0.4:
+        return "Solid match"
+    if score >= 0.3:
         return "Partial match"
-    return "Weak match"
+    return "Limited match"
 
 
 def _engagement(row: dict) -> list[str]:

@@ -148,7 +148,9 @@ Evidence: "<verbatim career-history span, trimmed at a word boundary>".
 ```
 
 Sources used by `src/ranking/reasoning.py:compose_reasoning`:
-- `score` → `_verdict` ("Strong/Partial/Weak match"), so tone tracks rank (rank consistency)
+- `score` → `_verdict` ("Strong/Solid/Partial/Limited match") — keyed to the final score the
+  ranking sorts on, so the verdict is always monotonic with rank; bands (0.5/0.4/0.3) are
+  calibrated to the compressed top-of-pool score distribution
 - `current_title`, `current_company`, `years_of_experience`, `applied_ml_years` — display fields
 - positive flags → `_select_strengths`: one anchor from `_ANCHOR_STRENGTHS` then the rarer
   `_SPECIALIST_STRENGTHS` first, so similar candidates surface **different** skills (variation)
