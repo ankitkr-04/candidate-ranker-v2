@@ -17,6 +17,7 @@ from pathlib import Path
 import orjson
 import polars as pl
 
+from src.config import AS_OF_DATE
 from src.features.build import build_feature_row
 from src.features.derive import FeatureDeriver
 from src.features.integrity import IntegrityDeriver
@@ -70,9 +71,13 @@ def load_candidates(path: Path, limit: int | None = None) -> list[Candidate]:
 
 
 def reference_date(candidates: list[Candidate]) -> date:
-    """Most recent activity date in the pool; the recency baseline (0 days)."""
+    """Most recent activity date in the pool; the recency baseline (0 days).
+
+    When the pool carries no activity dates the result would otherwise depend on the wall
+    clock; `config.AS_OF_DATE` (the dataset snapshot date) pins it so the run is reproducible.
+    """
     dates = [c.redrob_signals.last_active_date for c in candidates if c.redrob_signals.last_active_date]
-    return max(dates) if dates else date.today()
+    return max(dates) if dates else AS_OF_DATE
 
 
 def build_feature_table(
