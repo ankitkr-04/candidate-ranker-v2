@@ -179,7 +179,9 @@ def compose_reasoning(row: dict) -> str:
     score = row.get("score") or 0.0
 
     lead = title + (f" at {company}" if company else "")
-    lead += f", ~{yoe:.0f} yrs exp (~{applied:.1f} yrs applied ML)"
+    # Both to one decimal: applied_ml_years is capped at years_of_experience, so matching
+    # the precision keeps the parenthetical from ever reading as larger than the total.
+    lead += f", ~{yoe:.1f} yrs exp (~{applied:.1f} yrs applied ML)"
 
     strengths = _select_strengths(row)
 
