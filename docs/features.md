@@ -135,6 +135,7 @@ See [integrity.md](integrity.md) for the full design rationale. The signals it p
 | `career_months_overrun` | total career months > `years_of_experience × 12 + overrun_slack` |
 | `role_months_overrun` | any single role duration > the same threshold |
 | `current_role_date_conflict` | non-current role has no end_date, or current role has an end_date |
+| `experience_exceeds_career_span` | `years_of_experience` > (earliest role start → reference date) span + `experience_span_buffer_years` — the **inverse** of the overrun checks (stated experience outgrows the whole documented career, not the role sum) |
 
 ### Seniority / education signals (flags)
 

@@ -52,7 +52,7 @@ flowchart TD
     D --> E[skill_booster_expr\nper_skill × qualifying_skills\nif career_substance >= 0.6]
     E --> F[base_score\nclamp career_substance + skill_booster 0..1]
     F --> G[JD multiplier stages\n13 stages → mult__<id> columns]
-    G --> H[integrity penalty stages\n9 stages → mult__<id> columns]
+    G --> H[integrity penalty stages\n10 stages → mult__<id> columns]
     H --> I[hard gates\n4 gates → gate__<id> columns]
     I --> J[score = base_score\n× Π all stage cols]
     J --> M[sort: score desc\ncandidate_id asc]
