@@ -15,7 +15,7 @@ is reading the parquet, not computation.
 ```bash
 # via the shell wrapper (recommended)
 ./ranker.sh --pool 100k
-./ranker.sh --pool 100k --out artifacts/100k/submission.csv --top 100 --debug
+./ranker.sh --pool 100k --out results/100k/submission.csv --top 100 --debug
 
 # via Python module directly
 python -m src.ranking.main --pool sample
@@ -34,7 +34,7 @@ the environment overrides the interpreter.
 | `--candidates FILE` | — | candidate file path; uses its stem to locate the parquet |
 | `--features PATH` | — | explicit path to features.parquet (overrides pool/candidates) |
 | `--tuning PATH` | `artifacts/tuning/tuning.json` | override the tuning artifact |
-| `--out PATH` | `artifacts/<pool>/submission.csv` | output CSV path |
+| `--out PATH` | `results/<pool>/submission.csv` | output CSV path |
 | `--top N` | `100` | number of candidates to emit |
 | `--debug` | off | also write the full scored ranking (all candidates, all stage columns) to `artifacts/<pool>/debug.jsonl` |
 

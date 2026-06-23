@@ -55,20 +55,20 @@ three artifacts to `artifacts/tuning/`. Run once; re-run whenever you edit eithe
 ./precompute.sh --pool sample --no-slm
 
 # Full run with SLM on the GPU box
-PYTHON=.venv-gpu/bin/python ./precompute.sh --pool 100k --dtype half
+PYTHON=.venv-gpu/bin/python ./precompute.sh --pool 100k --dtype auto
 ```
 
 ### 4 — Rank
 
 ```bash
 ./ranker.sh --pool 100k
-./ranker.sh --pool 100k --out artifacts/100k/submission.csv --debug
+./ranker.sh --pool 100k --out results/100k/submission.csv --debug
 ```
 
 ### 5 — Validate submission
 
 ```bash
-python -m src.features.validate_submission artifacts/100k/submission.csv
+python -m src.features.validate_submission results/100k/submission.csv
 ```
 
 ---
@@ -87,9 +87,11 @@ src/
   features/                   normalize · metrics · derive · integrity · build · utilities
   precompute/                 parse pool → deterministic features → SLM → parquet
   ranking/                    compile policy → score → top-N CSV + reasoning
-artifacts/                    generated (gitignored)
+artifacts/                    generated
   tuning/                     tuning.json · slm_questions.json · integrity.json
-  <pool>/                     features.parquet · submission.csv · debug.jsonl
+  <pool>/                     features.parquet
+results/                      generated (gitignored)
+  <pool>/                     submission.csv 
 precompute.sh                 wraps python -m src.precompute.main
 ranker.sh                     wraps python -m src.ranking.main
 requirements.txt              CPU ranking deps (pydantic · polars · orjson)
