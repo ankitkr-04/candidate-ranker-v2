@@ -6,17 +6,29 @@
 # ============================================================================
 # Team identity   << TODO: fill before submitting >>
 # ============================================================================
-team_name: "your-team-name-here"  # Used in leaderboard and announcements
+team_name: "CoreUse"  # Used in leaderboard and announcements
 
 primary_contact:
-  name: "Full Name"
-  email: "primary@example.com"   # Used for all organizer communication
-  phone: "+91-XXXXXXXXXX"        # Used for top-50 / top-10 outreach
+  name: "Ayush Singh Tomar"
+  email: "ayushtomarrudra@gmail.com"   # Used for all organizer communication
+  phone: "+91-7489757818"        # Used for top-50 / top-10 outreach
 
 team_members:
-  - name: "Member 1 Full Name"
+  - name: "Ankit Kumar"
     email: "member1@example.com"
-    role: "ML Engineer"
+    role: "ML Systems & Architecture Engineer"
+
+  - name: "Ayush Singh Tomar"
+    email: "ayushtomarrudra@gmail.com"
+    role: "AI/LLM Engineer"
+    
+  - name: "Kaustubh Verma"
+    email: "kaustubhverma2302@gmail.com"
+    role: "Data Platform & Engineering Engineer"
+
+  - name: "Nalin Dalal"
+    email: "nalindalal2004@gmail.com"
+    role: "Applied Machine Learning & Ranking Systems Engineer"
 
 # ============================================================================
 # Code and reproducibility
