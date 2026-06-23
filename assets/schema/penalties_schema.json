@@ -47,6 +47,10 @@
                 "seniority_min_rank": {
                     "type": "integer",
                     "description": "Minimum title seniority rank that triggers senior_title_pre_graduation"
+                },
+                "experience_span_buffer_years": {
+                    "type": "number",
+                    "description": "Buffer in years to allow for experience span calculation"
                 }
             }
         },
