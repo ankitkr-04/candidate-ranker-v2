@@ -34,7 +34,8 @@
   },
   "params": {
     "overrun_slack_months": 18.0,
-    "seniority_min_rank": 3
+    "seniority_min_rank": 3,
+    "experience_span_buffer_years": 5.0
   },
   "features": {
     "flags": [
@@ -42,7 +43,8 @@
       "career_months_overrun",
       "role_months_overrun",
       "current_role_date_conflict",
-      "senior_title_pre_graduation"
+      "senior_title_pre_graduation",
+      "experience_exceeds_career_span"
     ],
     "metrics": [
       "num_education_overlaps",
@@ -101,6 +103,19 @@
             "flag": "current_role_date_conflict"
           },
           "value": 0.85
+        }
+      ]
+    },
+    {
+      "id": "experience_span_penalty",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": {
+            "flag": "experience_exceeds_career_span"
+          },
+          "value": 0.25
         }
       ]
     },

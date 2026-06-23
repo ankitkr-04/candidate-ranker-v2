@@ -61,6 +61,7 @@ INTEGRITY_FLAG_CONCERNS = {
     "career_months_overrun": "total role tenure exceeds the stated experience",
     "role_months_overrun": "a single role exceeds the stated experience",
     "current_role_date_conflict": "inconsistent current-role dates",
+    "experience_exceeds_career_span": "stated experience exceeds the documented career by years",
     "senior_title_pre_graduation": "a senior title dated before the first degree finished",
 }
 # Count-valued integrity concerns: phrased as a noun so the actual count can lead

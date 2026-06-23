@@ -22,6 +22,7 @@ class IntegrityDeriver:
     def __init__(self, integrity: IntegrityPolicy) -> None:
         self._slack = integrity.params.overrun_slack_months
         self._min_senior_rank = integrity.params.seniority_min_rank
+        self._span_buffer = integrity.params.experience_span_buffer_years
         self._tool_eras = {normalize_token(name): year for name, year in integrity.tool_eras.items()}
         self._high_proficiency = {"expert", "advanced"}
         self._flags = list(integrity.features.flags)
@@ -49,6 +50,17 @@ class IntegrityDeriver:
     def role_months_overrun(self, candidate: Candidate) -> bool:
         durations = [r.duration_months for r in candidate.career_history]
         return (max(durations) if durations else 0) > self._overrun_threshold(candidate)
+
+    def experience_exceeds_career_span(self, candidate: Candidate, reference: date) -> bool:
+        # The stated experience cannot exceed the span from the earliest documented role to
+        # the reference date by more than the buffer: those years have to come from somewhere.
+        # A normal candidate who drops an early job shows a gap of a year or two; a claim that
+        # overshoots the whole documented career by 5+ years is not a memory lapse, it is invented.
+        starts = [r.start_date for r in candidate.career_history if r.start_date is not None]
+        if not starts:
+            return False
+        span_years = (reference - min(starts)).days / 365.25
+        return candidate.profile.years_of_experience > span_years + self._span_buffer
 
     def current_role_date_conflict(self, candidate: Candidate) -> bool:
         return any(
@@ -138,6 +150,7 @@ class IntegrityDeriver:
             "career_months_overrun": self.career_months_overrun(candidate),
             "role_months_overrun": self.role_months_overrun(candidate),
             "current_role_date_conflict": self.current_role_date_conflict(candidate),
+            "experience_exceeds_career_span": self.experience_exceeds_career_span(candidate, reference),
             "senior_title_pre_graduation": self.senior_title_pre_graduation(candidate),
             "num_education_overlaps": self.num_education_overlaps(candidate),
             "num_skill_anomalies": self.num_skill_anomalies(candidate),

@@ -30,6 +30,10 @@ class IntegrityParams(BaseModel):
     overrun_slack_months: float = 18.0
     # Minimum seniority rank (see features.derive._seniority_rank) that reads as "senior".
     seniority_min_rank: int = 3
+    # Years the stated experience may exceed the documented career span (earliest role start
+    # to the reference date) before it reads as fabricated. Generous, so a normal candidate who
+    # omits an early job is never flagged -- only physically impossible claims trip it.
+    experience_span_buffer_years: float = 5.0
 
 
 class IntegrityFeatures(BaseModel):
