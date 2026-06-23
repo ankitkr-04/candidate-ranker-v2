@@ -18,7 +18,7 @@ import polars as pl
 
 from src.models.integrity import IntegrityPolicy, load_integrity
 from src.models.tuning import Tuning
-from src.paths import TUNING_ARTIFACT_DIR, pool_artifact_dir
+from src.paths import TUNING_ARTIFACT_DIR, pool_artifact_dir, pool_result_dir
 from src.ranking.reasoning import compose_reasoning
 from src.ranking.scorer import SCORE, score_frame
 
@@ -75,7 +75,7 @@ def main() -> None:
     parser.add_argument("--features", help="Path to features.parquet (overrides pool resolution).")
     parser.add_argument("--pool", help="Pool name, e.g. sample / 1k / 100k.")
     parser.add_argument("--tuning", help="Path to tuning.json (default artifacts/tuning/tuning.json).")
-    parser.add_argument("--out", help="Output CSV path (default artifacts/<pool>/submission.csv).")
+    parser.add_argument("--out", help="Output CSV path (default results/<pool>/submission.csv).")
     parser.add_argument("--top", type=int, default=100, help="Number of candidates to output.")
     parser.add_argument("--debug", action="store_true", help="Also write the full scored ranking to debug.jsonl.")
     args = parser.parse_args()
@@ -93,13 +93,14 @@ def main() -> None:
     ranked = rank(frame, tuning, integrity, args.top)
     submission = build_submission(ranked, args.top)
 
-    out_path = Path(args.out) if args.out else pool_artifact_dir(pool) / "submission.csv"
+    out_path = Path(args.out) if args.out else pool_result_dir(pool) / "submission.csv"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     submission.write_csv(out_path)
     print(f"Wrote {submission.height} ranked candidates to {out_path}")
 
     if args.debug:
-        debug_path = pool_artifact_dir(pool) / "debug.jsonl"
+        debug_path = pool_result_dir(pool) / "debug.jsonl"
+        debug_path.parent.mkdir(parents=True, exist_ok=True)
         ranked.write_ndjson(debug_path)
         print(f"Wrote full scored ranking ({ranked.height} rows) to {debug_path}")
 

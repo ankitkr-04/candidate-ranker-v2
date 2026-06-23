@@ -6,9 +6,18 @@ venv/
 ENV/
 .env
 
-# Raw and Generated Data (CRITICAL)
+# Raw input data (CRITICAL)
 data/
-artifacts/
+
+# artifacts/ holds the expensive precompute (features.parquet + tuning) and IS committed
+# so collaborators never need a GPU recompute. Only the cheap, regenerable outputs below
+# are ignored.
+artifacts/**/submission.csv
+artifacts/**/debug.jsonl
+artifacts/**/converted/
+
+# Ranker output: cheap to regenerate from the committed artifacts, so not tracked.
+results/
 
 #SLM Model
 assets/model/

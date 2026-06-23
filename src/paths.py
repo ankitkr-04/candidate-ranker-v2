@@ -22,7 +22,17 @@ ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 TUNING_ARTIFACT_DIR = ARTIFACTS_DIR / "tuning"
 INTEGRITY_ARTIFACT = TUNING_ARTIFACT_DIR / "integrity.json"
 
+# Ranker output lives outside artifacts/: the parquet + tuning under artifacts/ are the
+# expensive, committed inputs (no GPU recompute for collaborators), while rankings are a
+# cheap, regenerable, git-ignored product written here.
+RESULTS_DIR = PROJECT_ROOT / "results"
+
 
 def pool_artifact_dir(pool: str) -> Path:
     """Return the per-pool artifact directory, e.g. artifacts/100k."""
     return ARTIFACTS_DIR / pool
+
+
+def pool_result_dir(pool: str) -> Path:
+    """Return the per-pool results directory, e.g. results/100k."""
+    return RESULTS_DIR / pool

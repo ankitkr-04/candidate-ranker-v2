@@ -1,0 +1,138 @@
+{
+  "input_scope": "career_history only (titles, companies, descriptions, is_current). No education/skills/location/signals.",
+  "extraction_order": "emit subject_of_primary_work and a 1-line evidence span first, then booleans. Never alphabetize the schema.",
+  "ask": [
+    {
+      "id": "subject_of_primary_work",
+      "q": "In the candidate's most ML-relevant role, who performed the core ML/retrieval/ranking work — the candidate personally, their team/colleagues, or a team they managed? Quote the phrase that tells you.",
+      "type": "string"
+    },
+    {
+      "id": "owns_retrieval_prod",
+      "q": "Did the candidate personally build or own a production embeddings-based retrieval system serving real users?"
+    },
+    {
+      "id": "vector_db_prod",
+      "q": "Did the candidate personally operate a vector DB or hybrid-search infrastructure in production (Pinecone/Weaviate/Qdrant/Milvus/OpenSearch/Elasticsearch/FAISS or similar)?"
+    },
+    {
+      "id": "owns_eval_framework",
+      "q": "Did the candidate design an evaluation framework for a ranking/retrieval system (NDCG/MRR/MAP, offline-to-online correlation, or A/B-test interpretation)?"
+    },
+    {
+      "id": "strong_python_prod",
+      "q": "Is there evidence of strong production Python engineering, not just scripting/notebooks?"
+    },
+    {
+      "id": "retrieval_ops_depth",
+      "q": "Did the candidate handle retrieval operations specifically — embedding drift, index refresh, or retrieval-quality regression in production?"
+    },
+    {
+      "id": "owns_ranking_prod",
+      "q": "Did the candidate personally build or own a production ranking/recommendation system?"
+    },
+    {
+      "id": "shipped_endtoend_at_scale",
+      "q": "Did the candidate ship at least one end-to-end ranking, search, or recommendation system to real users at meaningful scale?"
+    },
+    {
+      "id": "ltr_experience",
+      "q": "Does the candidate have learning-to-rank experience (gradient-boosted or neural rankers)?"
+    },
+    {
+      "id": "reranker_twostage",
+      "q": "Has the candidate built a two-stage retrieve-then-rerank pipeline?"
+    },
+    {
+      "id": "relevance_judgment_pipeline",
+      "q": "Has the candidate built a relevance-judgment or labeling pipeline for a ranking/search system?"
+    },
+    {
+      "id": "realtime_ml_serving",
+      "q": "Has the candidate built real-time / low-latency ML serving infrastructure?"
+    },
+    {
+      "id": "llm_finetuning",
+      "q": "Does the candidate have hands-on LLM fine-tuning experience (LoRA/QLoRA/PEFT), not just API calling?"
+    },
+    {
+      "id": "ab_testing_ml",
+      "q": "Has the candidate run A/B tests for ML/ranking systems and interpreted the results?"
+    },
+    {
+      "id": "distributed_systems_scale",
+      "q": "Does the candidate have distributed-systems or large-scale inference-optimization background?"
+    },
+    {
+      "id": "hrtech_or_marketplace_exp",
+      "q": "Does the candidate have HR-tech, recruiting-tech, or marketplace-product experience?"
+    },
+    {
+      "id": "prod_ml_ops",
+      "q": "Did the candidate run ML in production with real MLOps (deployment, monitoring, retraining), not just model training?"
+    },
+    {
+      "id": "external_validation",
+      "q": "Does the history explicitly mention papers, talks, or open-source contributions?"
+    },
+    {
+      "id": "first_person_ownership",
+      "q": "Is the ML work described in first-person ownership terms (built/shipped/designed/implemented by the candidate)?"
+    },
+    {
+      "id": "primarily_adjacent",
+      "q": "Was the candidate primarily adjacent to the ML work — built the pipelines/APIs/infra that served someone else's model, rather than the model/ranking itself?"
+    },
+    {
+      "id": "observer_not_owner",
+      "q": "Did the candidate lead/coordinate/contribute to the work without personally building it (leader/observer, not owner)?"
+    },
+    {
+      "id": "manager_not_builder",
+      "q": "Is the candidate described primarily as a manager whose team did the building, rather than an individual builder?"
+    },
+    {
+      "id": "cv_dominant",
+      "q": "Is the candidate's ML work primarily computer vision?"
+    },
+    {
+      "id": "speech_dominant",
+      "q": "Is the candidate's ML work primarily speech/audio?"
+    },
+    {
+      "id": "robotics_dominant",
+      "q": "Is the candidate's ML work primarily robotics/control?"
+    },
+    {
+      "id": "nlp_ir_significant",
+      "q": "Does the candidate have significant NLP or information-retrieval experience?"
+    },
+    {
+      "id": "research_not_applied",
+      "q": "Is the candidate's career purely research/academic (research-only roles or academic labs) WITHOUT any production deployment?"
+    },
+    {
+      "id": "ic_role",
+      "q": "Is the candidate currently an individual contributor who writes code, as opposed to a pure architecture/tech-lead role?"
+    },
+    {
+      "id": "llm_api_wrapper_only",
+      "q": "Is the candidate's AI experience primarily calling hosted LLM APIs / LangChain wrappers rather than building ML systems?"
+    },
+    {
+      "id": "pre_llm_ml_production",
+      "q": "Does the candidate have substantial pre-LLM-era ML production experience (understood retrieval/ranking before it was fashionable)?"
+    },
+    {
+      "id": "is_hobbyist_or_self_learner",
+      "q": "Does the candidate explicitly state their AI/ML experience is from self-learning, side projects, online courses, or otherwise NOT in a professional capacity?"
+    }
+  ],
+  "candidates_for_eval_only": [
+    {
+      "id": "backend_integration_only",
+      "q": "Did the candidate explicitly state their role was only integrating the model / observability / writing the APIs, and explicitly not the model itself?",
+      "status": "HOLD — likely redundant with primarily_adjacent. Add only if the hard-case eval shows primarily_adjacent missing this case."
+    }
+  ]
+}
