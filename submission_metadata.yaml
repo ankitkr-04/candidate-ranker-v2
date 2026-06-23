@@ -71,8 +71,9 @@ methodology_summary: |
   viable candidates (~28k of 100k) to the SLM; the rest stay ranked at 0. The online ranking step is a
   single vectorized Polars pass — CPU-only, no network, 0.37s / 196MB peak for the full 100k pool on an
   i3/8GB box: career-substance from the SLM flags, then multiplicative modifiers (company tier, locality,
-  recency, experience bands) and a job-agnostic integrity layer of nine compounding penalties (date
-  inconsistencies, skill/proficiency anomalies, tool anachronisms, seniority-before-graduation).
+  recency, experience bands) and a job-agnostic integrity layer of ten compounding penalties (date
+  inconsistencies, experience exceeding the documented career span, skill/proficiency anomalies, tool
+  anachronisms, seniority-before-graduation).
   Implausible/honeypot profiles slide down via these generic penalties — no special-casing. The reasoning
   column is composed from the same features for transparency.
 
