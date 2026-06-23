@@ -1,0 +1,87 @@
+# Redrob Hackathon — Submission Metadata
+#
+# Mirrors the portal metadata. Stage 3 review uses this file to verify it.
+# NOTE: team-identity and repo/sandbox URLs below are placeholders — FILL BEFORE SUBMIT.
+
+# ============================================================================
+# Team identity   << TODO: fill before submitting >>
+# ============================================================================
+team_name: "your-team-name-here"  # Used in leaderboard and announcements
+
+primary_contact:
+  name: "Full Name"
+  email: "primary@example.com"   # Used for all organizer communication
+  phone: "+91-XXXXXXXXXX"        # Used for top-50 / top-10 outreach
+
+team_members:
+  - name: "Member 1 Full Name"
+    email: "member1@example.com"
+    role: "ML Engineer"
+
+# ============================================================================
+# Code and reproducibility
+# ============================================================================
+github_repo: "https://github.com/ankitkr-04/candidate-ranker-v2" 
+# Required. Must be reachable. Private repos OK if you can grant organizer access at Stage 3.
+
+sandbox_link: "https://huggingface.co/spaces/YOUR_USERNAME/redrob-ranker"   # << TODO: fill before submitting >>
+# Required. Hosts the RANKING step on a small candidate sample (artifacts/sample/features.parquet).
+# Does not need the SLM or the full pool. See submission_spec §10.5.
+
+reproduce_command: "python -m src.ranking.main --features artifacts/100k/features.parquet --out submission.csv"
+# The ranking step that produces the CSV: CPU-only, no GPU, no network. Reads the committed
+# precomputed features.parquet (allowed per spec §10.3) and writes the top-100 in <1s.
+# features.parquet is regenerated offline (GPU) by:
+#   python -m src.precompute.main --pool 100k          # SLM pre-compute (not part of the 5-min budget)
+
+# ============================================================================
+# Compute environment   (ranking box; the GPU pre-compute is declared separately below)
+# ============================================================================
+compute:
+  platform: "Ranking: local box, Intel i3-8130U, EndeavourOS (Arch). Pre-compute: Lightning AI L4 24GB GPU (offline SLM)"
+  cpu_cores: 4                                  # i3-8130U (2c/4t)
+  ram_gb: 8                                     # ranking box — under the 16GB ranking cap
+  python_version: "3.12.13"
+  os: "EndeavourOS (Arch Linux)"
+  uses_gpu_for_inference: false                 # ranking is a vectorized Polars pass — no model, no GPU
+  has_network_during_ranking: false             # ranking reads a local parquet only
+  pre_computation_required: true                # SLM job-fit flags are precomputed OFFLINE on a GPU
+  pre_computation_time_minutes: 210             # ~28k candidates (ceiling 0.02), ~15 min / 2k batch on one L4
+
+# ============================================================================
+# AI tools declaration   (transparency only — declared use is NOT penalized)
+# ============================================================================
+ai_tools_used:
+  - "Claude"
+  - "Gemini"
+
+ai_usage_summary: |
+  Used Claude (via Claude Code) for architecture discussion, code review, and spot-checking
+  ranker output. Used it for discussion and design feedback on the pre-computation pipeline, 
+  weights and multiplicative modifiers, and the integrity penalty layer,
+  Used gemini for weights adjustment, jd analysis and trade-offs discussion. 
+
+# ============================================================================
+# Approach summary
+# ============================================================================
+methodology_summary: |
+  Two-stage ranker. Offline pre-compute derives deterministic features and runs a self-hosted
+  Qwen3-4B SLM over each candidate's career_history, emitting grounded boolean job-fit flags plus a
+  verbatim evidence quote, written to features.parquet. A deterministic ceiling pre-filter sends only
+  viable candidates (~28k of 100k) to the SLM; the rest stay ranked at 0. The online ranking step is a
+  single vectorized Polars pass — CPU-only, no network, 0.37s / 196MB peak for the full 100k pool on an
+  i3/8GB box: career-substance from the SLM flags, then multiplicative modifiers (company tier, locality,
+  recency, experience bands) and a job-agnostic integrity layer of nine compounding penalties (date
+  inconsistencies, skill/proficiency anomalies, tool anachronisms, seniority-before-graduation).
+  Implausible/honeypot profiles slide down via these generic penalties — no special-casing. The reasoning
+  column is composed from the same features for transparency.
+
+# ============================================================================
+# Declarations
+# ============================================================================
+declarations:
+  read_submission_spec: true        # read submission_spec in full
+  code_is_original_work: true       # team's original work (AI used as a tool)
+  no_collusion: true                # no coordination with other teams
+  honeypot_check_done: true         # diagnosed honeypots; handled via the integrity penalty layer
+  reproduction_tested: true         # measured: ranking 100k in 0.37s / 196MB on i3 8GB CPU, no network
