@@ -147,8 +147,8 @@
       "type": "decay",
       "id": "skill_anachronism_penalty",
       "feature": "num_skill_anachronisms",
-      "base": 0.92,
-      "floor": 0.6
+      "base": 0.99,
+      "floor": 0.9
     },
     {
       "type": "conditional",

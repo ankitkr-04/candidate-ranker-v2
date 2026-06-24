@@ -144,8 +144,8 @@
       "id": "skill_anachronism_penalty",
       "type": "decay",
       "feature": "num_skill_anachronisms",
-      "base": 0.92,
-      "floor": 0.6
+      "base": 0.99,
+      "floor": 0.9
     },
     {
       "id": "seniority_before_graduation_penalty",
