@@ -1,5 +1,4 @@
 {
-  "$schema": "../schema/penalties_schema.json",
   "version": "1.0",
   "description": "Job-agnostic profile-integrity penalties. Each flags data that is implausible for any genuine candidate (inconsistent dates, a skill used longer than the person has worked or longer than the tool has existed, a senior title dated before the first degree finished). Applied as small multiplicative penalties that compound into a ranking gradient -- no single hard cut.",
   "tool_eras": {

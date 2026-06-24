@@ -48,7 +48,10 @@ def write_artifacts(policy: Policy, out_dir: Path = TUNING_ARTIFACT_DIR) -> tupl
 def write_integrity_artifact(integrity: IntegrityPolicy, out_path: Path = INTEGRITY_ARTIFACT) -> Path:
     """Write the validated integrity penalties to their own artifact (separate from tuning)."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(integrity.model_dump_json(by_alias=True, exclude_none=True, indent=2))
+    # Dump to dict so we can remove the "$schema" key if present
+    data = integrity.model_dump(by_alias=True, exclude_none=True)
+    data.pop("$schema", None)
+    out_path.write_text(json.dumps(data, indent=2))
     return out_path
 
 
