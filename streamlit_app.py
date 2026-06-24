@@ -11,6 +11,7 @@ Local run:  streamlit run streamlit_app.py
 
 from __future__ import annotations
 
+import json
 import sys
 import time
 from pathlib import Path
@@ -26,6 +27,7 @@ from src.models.integrity import load_integrity  # noqa: E402
 from src.paths import (  # noqa: E402
     CANDIDATES_DIR,
     INTEGRITY_ARTIFACT,
+    TUNING_ARTIFACT_DIR,
     pool_artifact_dir,
     pool_result_dir,
 )
@@ -118,18 +120,26 @@ with st.sidebar:
         "feature parquet → deterministic scoring → ranked CSV. CPU-only, no network."
     )
     st.info(
-        "The offline GPU precompute (Qwen3-SLM that builds the parquets) is **not** "
-        "part of this ≤5-min CPU budget. The parquet is the committed handoff between "
-        "the two stages.",
+        "The offline feature-precompute step (GPU) can't run in this sandbox and is "
+        "**not** part of the ≤5-min CPU budget. The precomputed feature parquet is the "
+        "committed handoff between the two stages.",
         icon="ℹ️",
     )
     if INTEGRITY_ARTIFACT.is_file():
-        import json
-
         pen = json.loads(INTEGRITY_ARTIFACT.read_text()).get("penalties", [])
         st.caption(f"Integrity layer: {len(pen)} compounding penalties")
         st.caption("Score = base × Π(JD multipliers) × Π(integrity penalties). "
                    "Sort: score desc, candidate_id asc (deterministic).")
+    with st.expander("Scoring policy (download)"):
+        st.caption("The compiled artifacts the ranker applies. Read-only here — edit "
+                   "them in the repo and re-rank to change scores; the source files stay safe.")
+        tuning_art = TUNING_ARTIFACT_DIR / "tuning.json"
+        if tuning_art.is_file():
+            st.download_button("⬇ tuning.json", tuning_art.read_bytes(),
+                               file_name="tuning.json", mime="application/json")
+        if INTEGRITY_ARTIFACT.is_file():
+            st.download_button("⬇ integrity.json (penalties)", INTEGRITY_ARTIFACT.read_bytes(),
+                               file_name="integrity.json", mime="application/json")
 
 st.title("🎯 Candidate Ranker — Sandbox")
 st.caption("Redrob hackathon · team CoreUse · Senior AI Engineer (Founding Team)")
@@ -189,7 +199,19 @@ if run:
               help=f"Feature frame in memory ≈ {m['frame_mb']:.1f} MB.")
 
     st.success(f"Ranked {m['rows']:,} candidates; wrote top {submission.height} to {m['out']}.")
-    st.dataframe(submission.to_pandas(), width="stretch", hide_index=True)
+    # Explicit column widths so the long reasoning column overflows the container and
+    # the table gets a horizontal scrollbar instead of squashing every column.
+    st.dataframe(
+        submission.to_pandas(),
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "candidate_id": st.column_config.TextColumn("candidate_id", width="medium"),
+            "rank": st.column_config.NumberColumn("rank", width="small"),
+            "score": st.column_config.NumberColumn("score", format="%.6f", width="small"),
+            "reasoning": st.column_config.TextColumn("reasoning", width="large"),
+        },
+    )
     st.download_button(
         "⬇ Download submission.csv",
         submission.write_csv(), file_name=f"{pool}_submission.csv", mime="text/csv",
