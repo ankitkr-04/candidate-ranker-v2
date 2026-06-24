@@ -24,7 +24,7 @@ team_members:
 github_repo: "https://github.com/ankitkr-04/candidate-ranker-v2" 
 # Required. Must be reachable. Private repos OK if you can grant organizer access at Stage 3.
 
-sandbox_link: "https://huggingface.co/spaces/YOUR_USERNAME/redrob-ranker"   # << TODO: fill before submitting >>
+sandbox_link: "https://candidate-ranker-bnaecfdavasak6lyavkdc7.streamlit.app/"   
 # Required. Hosts the RANKING step on a small candidate sample (artifacts/sample/features.parquet).
 # Does not need the SLM or the full pool. See submission_spec §10.5.
 
