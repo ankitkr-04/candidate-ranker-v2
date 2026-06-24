@@ -115,7 +115,7 @@
           "when": {
             "flag": "experience_exceeds_career_span"
           },
-          "value": 0.25
+          "value": 0.1
         }
       ]
     },

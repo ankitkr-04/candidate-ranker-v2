@@ -118,7 +118,7 @@
             "flag": "experience_exceeds_career_span",
             "negate": false
           },
-          "value": 0.25
+          "value": 0.1
         }
       ]
     },
