@@ -163,7 +163,7 @@ graph LR
     subgraph "Hard impossibilities (strong multiplier)"
         H1["end_before_start_penalty\nconditional: 0.40"]
         H2["proficiency_anomaly_penalty\ndecay: 0.55^num_proficiency_anomalies, floor 0.12"]
-        H3["experience_span_penalty\nconditional: 0.25"]
+        H3["experience_span_penalty\nconditional: 0.10"]
         H4["role_months_overrun / current_role_date_conflict\nconditional: 0.85"]
         H5["career_months_overrun_penalty\nconditional: 0.90"]
     end
@@ -207,7 +207,7 @@ gamed."
 
 | Proposed detector | Cliff? | Reaches top-100? | Verdict |
 |---|---|---|---|
-| **`experience_exceeds_career_span`** (YoE ≫ career span) | **Yes** — natural "omitted early jobs" tops out at +2 yr, then nothing until a planted cluster at +8 to +12 yr; ~25 profiles pool-wide | **Yes** — suspects sat at ranks 10/15/19/56, *rewarded* by the experience band | **Added** (conditional 0.25) |
+| **`experience_exceeds_career_span`** (YoE ≫ career span) | **Yes** — natural "omitted early jobs" tops out at +2 yr, then nothing until a planted cluster at +8 to +12 yr; ~25 profiles pool-wide | **Yes** — suspects sat at ranks 10/15/19/56, *rewarded* by the experience band | **Added** (conditional 0.10) |
 | `num_proficiency_anomalies` (expert skill, 0 months) | Yes — 0-duration skills are essentially only the planted expert+0 set | No (today: all substance-0) — but a *sophisticated* honeypot could combine high substance + this tell | **Added** as a latent net (decay 0.55, floor 0.12) |
 | Title inflation (lead title + micro-company + low YoE) | n/a — **premise absent**: no `1-10` company-size bucket exists; the 9 lead-titled current roles are all at 51+ companies | No (zero matches) | **Rejected** — would also penalize the scrappy founding-engineer profile the JD wants |
 | Education-anchored experience (YoE − years-since-graduation) | **No** — smooth ramp: 14,644 > 0 yr, 10,173 > 1.5, 6,673 > 3, 3,470 > 5, 812 > 8 | Would demote ~10k real candidates | **Rejected** — noise, and it *misses* a real honeypot that backdated its graduation while leaving its career history at 2019 (the career-history anchor is the harder-to-fake one) |
