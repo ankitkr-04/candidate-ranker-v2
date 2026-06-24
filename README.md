@@ -73,6 +73,38 @@ python -m src.features.validate_submission results/100k/submission.csv
 
 ---
 
+## Sandbox / demo
+
+A hosted Streamlit demo ([`streamlit_app.py`](streamlit_app.py)) runs the **online
+ranking stage** end-to-end on a chosen pool and produces a ranked CSV — CPU-only,
+well under the 5-minute budget (the full 100k pool ranks in <0.1 s). It deliberately
+runs *only* the ranking stage: the offline GPU precompute (Qwen3-SLM) that builds the
+feature parquets is not part of the sandbox budget; the parquet is the committed
+handoff between the two stages.
+
+Pools offered: `sample` (50), `1k` (1,000), three `100_rand_*` (100) and three
+`1k_rand_*` (1,000) — random subsets of the SLM-scored candidates, reproducible via
+[`scripts/make_demo_pools.py`](scripts/make_demo_pools.py) — plus `100k` (ranking only;
+its 465 MB raw file is gitignored, so the demo ranks it from the committed 2.5 MB
+parquet and the raw download is disabled).
+
+Run locally:
+
+```bash
+pip install -r requirements.txt          # includes streamlit + psutil
+streamlit run streamlit_app.py
+```
+
+Deploy: point Streamlit Cloud at this repo; it auto-detects `streamlit_app.py` and
+installs `requirements.txt`. Docker fallback (spec-permitted alternative):
+
+```bash
+docker run --rm -p 8501:8501 -w /app -v "$PWD":/app python:3.12-slim \
+  bash -c "pip install -r requirements.txt && streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0"
+```
+
+---
+
 ## Repository layout
 
 ```

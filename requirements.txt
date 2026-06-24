@@ -4,3 +4,8 @@
 pydantic>=2
 orjson>=3.10
 polars>=1
+
+# Sandbox UI (Streamlit demo). Not needed to run the ranker from the CLI; only the
+# hosted demo (streamlit_app.py) imports these.
+streamlit>=1.36
+psutil>=5.9

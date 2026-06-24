@@ -1,2 +1,4 @@
 *.bin filter=lfs diff=lfs merge=lfs -text
-*.jsonl filter=lfs diff=lfs merge=lfs -text
+# The 465MB 100k pool is gitignored (not tracked); the remaining demo jsonls are
+# only KBs-MBs, so they are committed as plain git. Keeping them out of Git LFS
+# avoids LFS bandwidth quotas when Streamlit Cloud clones the repo.

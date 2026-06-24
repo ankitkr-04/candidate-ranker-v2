@@ -9,6 +9,12 @@ ENV/
 # Raw input data (CRITICAL)
 data/
 
+# The full 100k candidate pool (~465MB) is too large to host on the sandbox / commit.
+# Ranking runs from the committed 2.5MB artifacts/100k/features.parquet instead; the
+# small demo pools (sample, 1k, *_rand_*) are committed as plain git. Keep the full
+# file locally for the Stage-3 reproduction.
+assets/candidates/100k_pool.jsonl
+
 # artifacts/ holds the expensive precompute (features.parquet + tuning) and IS committed
 # so collaborators never need a GPU recompute. Only the cheap, regenerable outputs below
 # are ignored.
