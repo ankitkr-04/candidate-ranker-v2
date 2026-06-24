@@ -77,16 +77,26 @@ python -m src.features.validate_submission results/100k/submission.csv
 
 A hosted Streamlit demo ([`streamlit_app.py`](streamlit_app.py)) runs the **online
 ranking stage** end-to-end on a chosen pool and produces a ranked CSV — CPU-only,
-well under the 5-minute budget (the full 100k pool ranks in <0.1 s). It deliberately
-runs *only* the ranking stage: the offline GPU precompute (Qwen3-SLM) that builds the
-feature parquets is not part of the sandbox budget; the parquet is the committed
-handoff between the two stages.
+well under the 5-minute budget (the full 100k pool ranks in <0.2 s). It deliberately
+runs *only* the ranking stage: the offline feature-precompute step (GPU) is not part
+of the sandbox budget; the precomputed parquet is the committed handoff between the
+two stages.
 
 Pools offered: `sample` (50), `1k` (1,000), three `100_rand_*` (100) and three
-`1k_rand_*` (1,000) — random subsets of the SLM-scored candidates, reproducible via
-[`scripts/make_demo_pools.py`](scripts/make_demo_pools.py) — plus `100k` (ranking only;
-its 465 MB raw file is gitignored, so the demo ranks it from the committed 2.5 MB
-parquet and the raw download is disabled).
+`1k_rand_*` (1,000) — reproducible random subsets, built by
+[`scripts/make_demo_pools.py`](scripts/make_demo_pools.py) — plus `100k` (ranking
+only). The sidebar also offers read-only downloads of the compiled scoring policy
+(`tuning.json`, `integrity.json`).
+
+The 465 MB `100k_pool.jsonl` stays in **Git LFS** but is excluded from the default
+fetch via [`.lfsconfig`](.lfsconfig), so a normal clone (including Streamlit Cloud)
+pulls only its pointer — the 100k pool ranks from the committed 2.5 MB parquet and its
+raw download is disabled in the UI. To materialise the full file (Stage-3 reproduction
+or re-running precompute):
+
+```bash
+git lfs pull --include="assets/candidates/100k_pool.jsonl"
+```
 
 Run locally:
 

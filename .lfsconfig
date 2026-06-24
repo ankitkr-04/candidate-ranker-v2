@@ -1,0 +1,7 @@
+[lfs]
+	# Keep the 465MB full candidate pool in Git LFS on GitHub, but exclude it from the
+	# default fetch so normal clones (Streamlit Cloud) pull only its pointer, not the
+	# data. The ranker reads the committed parquet, never this jsonl, so a pointer is
+	# enough for the app. Pull it explicitly when needed:
+	#   git lfs pull --include="assets/candidates/100k_pool.jsonl"
+	fetchexclude = assets/candidates/100k_pool.jsonl
