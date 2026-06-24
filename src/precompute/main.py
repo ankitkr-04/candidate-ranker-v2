@@ -13,6 +13,7 @@ Examples:
 import argparse
 from datetime import date
 from pathlib import Path
+from typing import cast, Literal
 
 import orjson
 import polars as pl
@@ -155,7 +156,13 @@ def run_slm_stage(
     if not todo:
         return apply_slm_facts(table, facts, tuning)
 
-    runner = SlmRunner(questions, tuning, dtype=dtype, max_model_len=max_model_len, max_tokens=max_tokens)
+    runner = SlmRunner(
+        questions,
+        tuning,
+        dtype=cast(Literal["auto", "half", "float16", "bfloat16", "float", "float32"], dtype),
+        max_model_len=max_model_len,
+        max_tokens=max_tokens,
+    )
     for start in range(0, len(todo), batch_size):
         facts.extend(runner.generate(todo[start : start + batch_size]))
         apply_slm_facts(table, facts, tuning).write_parquet(out_path)
