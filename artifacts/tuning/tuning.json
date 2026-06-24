@@ -497,7 +497,7 @@
         {
           "type": "conditional",
           "id": "open_to_work",
-          "default": 0.85,
+          "default": 0.95,
           "cases": [
             {
               "when": {
@@ -520,11 +520,11 @@
             },
             {
               "at": 0.5,
-              "value": 0.92
+              "value": 0.96
             },
             {
               "at": 0.0,
-              "value": 0.85
+              "value": 0.92
             }
           ]
         },
