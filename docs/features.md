@@ -190,8 +190,10 @@ the policy at runtime — so adding a flag to the JD automatically extends the s
 **Purpose:** one-shot data repair for Chinese code-switching in the SLM `evidence` column.
 The SLM (Qwen3-4B) occasionally emits Chinese for an English word inside the free-text
 evidence span, typically near the 200-char truncation limit. The boolean flags are
-structurally constrained by guided decoding and are always clean; `evidence` is display-only
-and never read by the scorer.
+structurally constrained by guided decoding and are always clean; `evidence` is a free-text
+SLM column that the scorer never reads. As of the causal-reasoning rewrite the submission's
+`reasoning` text no longer quotes it either, so this repair is now cosmetic — it only matters
+if you surface the parquet `evidence` column elsewhere (e.g. ad-hoc review).
 
 **Strategy:** translate frequent, cleanly-mappable phrases using the `_RESTORE` map (longest
 match first, space-padded to avoid word fusion), then cut at the first remaining CJK/Hangul
