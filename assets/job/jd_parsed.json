@@ -391,9 +391,9 @@
       "feature": "location_relocation_bucket",
       "map": {
         "local": 1.0,
-        "tier1_relocating": 0.88,
+        "tier1_relocating": 0.95,
         "tier1_not_relocating": 0.6,
-        "other_india_relocating": 0.75,
+        "other_india_relocating": 0.88,
         "other_india_not_relocating": 0.4,
         "outside_relocating": 0.15,
         "outside_not_relocating": 0.04
