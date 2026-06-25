@@ -325,7 +325,7 @@ def _frame_profile_led(ctx: dict) -> str:
     if ctx["flags"]:
         parts.append("Data-quality notes: " + ", ".join(ctx["flags"]) + ".")
     elif ctx["reassure"]:
-        parts.append("Clean profile — no data-quality concerns.")
+        parts.append("No material data-quality flags.")
     return " ".join(parts)
 
 
