@@ -677,6 +677,32 @@
           "value": 1.05
         }
       ]
+    },
+    {
+      "id": "narrow_domain_bonus",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": {
+            "flag": "built_recruiter_or_jd_matching"
+          },
+          "value": 1.08
+        }
+      ]
+    },
+    {
+      "id": "shipper_bonus",
+      "type": "conditional",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": {
+            "flag": "scrappy_shipper"
+          },
+          "value": 1.03
+        }
+      ]
     }
   ],
   "hard_gates": [
