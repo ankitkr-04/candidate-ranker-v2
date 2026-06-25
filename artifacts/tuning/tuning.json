@@ -416,17 +416,20 @@
                 "negate": false
               },
               {
-                "flag": "is_local",
-                "negate": false
+                "not": {
+                  "any": [
+                    {
+                      "flag": "is_local",
+                      "negate": false
+                    },
+                    {
+                      "flag": "willing_to_relocate",
+                      "negate": false
+                    }
+                  ]
+                }
               }
             ]
-          },
-          "value": 1.0
-        },
-        {
-          "when": {
-            "flag": "prefers_remote",
-            "negate": false
           },
           "value": 0.78
         }

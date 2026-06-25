@@ -412,15 +412,18 @@
                 "flag": "prefers_remote"
               },
               {
-                "flag": "is_local"
+                "not": {
+                  "any": [
+                    {
+                      "flag": "is_local"
+                    },
+                    {
+                      "flag": "willing_to_relocate"
+                    }
+                  ]
+                }
               }
             ]
-          },
-          "value": 1.0
-        },
-        {
-          "when": {
-            "flag": "prefers_remote"
           },
           "value": 0.78
         }
