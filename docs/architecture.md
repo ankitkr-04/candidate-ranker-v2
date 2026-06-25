@@ -206,8 +206,15 @@ ceiling = 1.0 (best-case base_score)
 
 This is computed by `scorer.py:ceiling_expr`. Precompute runs the SLM only for candidates
 whose `ceiling >= --slm-ceiling` (default 0.02). Skipped candidates keep null SLM columns,
-score ~0, and stay ranked. The ceiling is an exact upper bound: a skipped candidate cannot
+score ~0, and stay ranked. The ceiling is an upper bound: a skipped candidate cannot
 reach the top-N even with a perfect SLM result.
+
+One nuance: `domain_mandate_bonus` is the only multiplier that can exceed 1.0 (≤ ×1.05),
+and it is gated on SLM flags that are still null at pre-filter time, so the ceiling
+evaluates it at its default (1.0) and thus *under*-counts a bonus-eligible candidate's true
+max by ≤5%. This is safe given the permissive 0.02 threshold — every bonus-eligible profile
+(`owns_retrieval/ranking` + first-person ownership in HR-tech/marketplace) clears it by a
+wide margin — so no placeable candidate is dropped.
 
 ```mermaid
 flowchart LR

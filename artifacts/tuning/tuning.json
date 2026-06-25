@@ -647,6 +647,44 @@
           "value": 1.03
         }
       ]
+    },
+    {
+      "type": "conditional",
+      "id": "domain_mandate_bonus",
+      "default": 1.0,
+      "cases": [
+        {
+          "when": {
+            "all": [
+              {
+                "flag": "hrtech_or_marketplace_exp",
+                "negate": false
+              },
+              {
+                "flag": "first_person_ownership",
+                "negate": false
+              },
+              {
+                "any": [
+                  {
+                    "flag": "owns_retrieval_prod",
+                    "negate": false
+                  },
+                  {
+                    "flag": "owns_ranking_prod",
+                    "negate": false
+                  }
+                ]
+              },
+              {
+                "flag": "observer_not_owner",
+                "negate": true
+              }
+            ]
+          },
+          "value": 1.05
+        }
+      ]
     }
   ],
   "hard_gates": [
