@@ -1,27 +1,24 @@
 """Compose a short, grounded, *causal* reasoning string for a ranked candidate.
 
 Runs only on the top-N rows, so per-row Python is affordable. Each entry is built
-ONLY from values present in the scored feature row -- title, company, experience, the
-SLM evidence span, which policy flags fired, and the multiplier/penalty stack the
-scorer already emits (`mult__*`, `gate__*`) -- so it stays specific and never invents
-facts (Stage-4: no hallucination).
+ONLY from values present in the scored feature row -- title, company, experience, which
+policy flags fired, and the multiplier/penalty stack the scorer already emits
+(`mult__*`, `gate__*`) -- so it stays specific and never invents facts (Stage-4: no
+hallucination).
 
 This is the artifact a human reads at manual review of top submissions, so it is
-organised around *cause and magnitude*, not as an exhaustive field dump:
+organised around *cause and magnitude*, not as an exhaustive field dump. Each entry
+leads with the verdict (kept monotonic with rank), names why the candidate is in the
+list (the base-score driver) and why they are not ranked higher (the largest sub-1.0
+multiplier, in recruiter terms with the concrete number behind it), and lists only
+material data-quality flags.
 
-    <verdict> — <one-line cause>. <title> at <company>, ~Xy exp (~Yy applied ML).
-    <why this candidate is in the list (the base-score driver)>, but
-      <why they are not ranked higher (the largest sub-1.0 multiplier), in recruiter
-       terms with the concrete number behind it>.
-    [Flags: <material data-quality / profile concerns only>.]
-    Evidence: "<verbatim career-history span, trimmed at a word boundary>".
-
-Two rules keep it honest and uncluttered:
+Three rules keep it honest and un-templated:
   * it reads whichever stage dominates -- no hardcoded JD constants, no "if Meta then…";
-  * multipliers within ~0.025 of 1.0 are immaterial and are suppressed, so a 0.99
-    penalty is never framed as the reason a candidate ranks low.
-The verdict is keyed to the final score (the value the ranking sorts on), so it stays
-monotonic with rank.
+  * multipliers within ~0.025 of 1.0 are immaterial and suppressed, so a 0.99 penalty is
+    never framed as the reason a candidate ranks low;
+  * the sentence frame is chosen per candidate (decorrelated from rank), so sampled
+    reasonings are structurally as well as factually different from one another.
 """
 
 import re
@@ -42,7 +39,7 @@ POSITIVE_PHRASES = {
     "external_validation": "papers, talks, or open-source contributions",
 }
 
-# Profile-type concerns (job-fit, not data-quality). Surfaced in the Flags clause only
+# Profile-type concerns (job-fit, not data-quality). Surfaced in the flags clause only
 # when they fired and are not already the named dominant drag.
 CONCERN_PHRASES = {
     "manager_not_builder": "reads as a manager rather than a hands-on builder",
@@ -56,19 +53,31 @@ CONCERN_PHRASES = {
     "robotics_dominant": "ML focus is robotics, not retrieval/ranking",
 }
 
-_LOCATION_CONCERNS = {
-    "tier1_not_relocating": "in a tier-1 city but not open to relocating",
-    "other_india_not_relocating": "elsewhere in India and not open to relocating",
-    "outside_not_relocating": "outside India and not open to relocating",
-    "outside_relocating": "based outside India",
+# Location drag, by location_relocation_bucket. Phrased as noun clauses so they read
+# naturally after "downweighted ~X% due to …".
+_LOCATION_PHRASES = {
+    "tier1_relocating": "a tier-1 location requiring relocation",
+    "tier1_not_relocating": "relocation constraints (tier-1 city, not open to relocating)",
+    "other_india_relocating": "an out-of-hub location requiring relocation",
+    "other_india_not_relocating": "relocation constraints (outside the hub, not open to relocating)",
+    "outside_relocating": "a location outside India",
+    "outside_not_relocating": "a location outside India with no relocation",
 }
 
-# --- "why not ranked higher": label each JD multiplier / hard gate in recruiter terms.
-# Static labels; stages with their own underlying numbers (availability, experience,
-# notice, location) are filled in dynamically by _drag_phrase so the cause is concrete.
-# Phrased as noun clauses so they read naturally after "downweighted ~X% on …" / "by …".
+# Title drag, by current_title_bucket. The role targets senior/staff/lead ML titles
+# (the `ideal` bucket); `strong_positive` titles (ML/AI/Search/Recsys Engineer) are
+# ML-aligned but one notch below that seniority -- so the phrasing is about seniority and
+# exactness of match, never "not ML-aligned".
+_TITLE_PHRASES = {
+    "strong_positive": "a current title one notch below the target seniority",
+    "moderate_positive": "an ML-adjacent current title (data/analytics, not core ML engineering)",
+    "neutral_read_description": "a generic current title (not explicitly ML)",
+    "heavy_penalty": "a largely off-target current title",
+    "hard_sink": "a current title unrelated to ML/AI",
+}
+
+# Static recruiter labels for the remaining JD multipliers / hard gates (noun clauses).
 _DRAG_LABELS = {
-    "current_title_congruence": "a current title that isn't ML-aligned",
     "company_context": "a weaker company-pedigree signal",
     "enterprise_lifer_overlay": "an enterprise-only career (startup-fit risk)",
     "work_mode_overlay": "a work-mode preference mismatch",
@@ -88,7 +97,7 @@ _SHORT_TAG = {
     "location": "location",
     "notice_period": "notice period",
     "verification": "verification",
-    "current_title_congruence": "title fit",
+    "current_title_congruence": "title seniority",
     "company_context": "company signal",
     "enterprise_lifer_overlay": "startup-fit risk",
     "work_mode_overlay": "work mode",
@@ -119,11 +128,7 @@ _PENALTY_COUNT_NOUNS = {
 # as a cause. Penalties use the same bar so a 0.99 anachronism is suppressed.
 _MATERIAL = 0.025
 
-_SENTENCE_END = re.compile(r'[.!?]["\']?$')
-
 # Strength selection: top candidates share the JD-core flags but differ in specialisms.
-# Show ONE core anchor (so JD fit is explicit) then the candidate's more distinctive
-# strengths first, so similar candidates surface different skills.
 _ANCHOR_STRENGTHS = ("owns_retrieval_prod", "owns_ranking_prod", "owns_eval_framework", "vector_db_prod")
 _SPECIALIST_STRENGTHS = (
     "reranker_twostage", "realtime_ml_serving", "external_validation", "llm_finetuning",
@@ -134,6 +139,10 @@ _SPECIALIST_STRENGTHS = (
 
 def _is_true(row: dict, flag: str) -> bool:
     return row.get(flag) is True
+
+
+def _cap(text: str) -> str:
+    return text[0].upper() + text[1:] if text else text
 
 
 def _select_strengths(row: dict) -> list[str]:
@@ -202,10 +211,14 @@ def _drag_phrase(stage_id: str, row: dict) -> str:
         applied = row.get("applied_ml_years") or 0.0
         return f"limited applied-ML depth (~{applied:.1f}y)"
     if stage_id == "notice_period":
-        return f"{int(row.get('notice_period_days') or 0)}-day notice period"
+        return f"a {int(row.get('notice_period_days') or 0)}-day notice period"
     if stage_id == "location":
-        return _LOCATION_CONCERNS.get(
+        return _LOCATION_PHRASES.get(
             row.get("location_relocation_bucket") or "", "location/relocation constraints"
+        )
+    if stage_id == "current_title_congruence":
+        return _TITLE_PHRASES.get(
+            row.get("current_title_bucket") or "", "a current title that's an imperfect match"
         )
     return _DRAG_LABELS.get(stage_id, stage_id.replace("_", " "))
 
@@ -213,7 +226,7 @@ def _drag_phrase(stage_id: str, row: dict) -> str:
 def _dominant_drag(row: dict) -> tuple[str, float] | None:
     """Largest fit/availability downweight among JD multipliers + hard gates.
 
-    Integrity penalties are handled separately (the Flags clause) so the "why not
+    Integrity penalties are handled separately (the flags clause) so the "why not
     higher" reason is about job fit and availability, not data-quality noise. Returns
     (stage_id, value) for the most material stage, or None if everything is ~1.0.
     """
@@ -234,8 +247,8 @@ def _dominant_drag(row: dict) -> tuple[str, float] | None:
     return None
 
 
-def _material_flags(row: dict) -> list[str]:
-    """Data-quality penalties that actually bit (suppress the immaterial ~0.99 ones)."""
+def _all_flags(row: dict) -> list[str]:
+    """Material data-quality penalties first, then any profile-fit concern that fired."""
     flags: list[str] = []
     for pen_id, phrase in _PENALTY_PHRASES.items():
         val = row.get(f"mult__{pen_id}")
@@ -246,22 +259,10 @@ def _material_flags(row: dict) -> list[str]:
         count = int(row.get(metric) or 0)
         if isinstance(val, (int, float)) and val <= 1.0 - _MATERIAL and count > 0:
             flags.append(_plural(count, noun))
-    return flags
-
-
-def _clean_quote(text: str | None, limit: int = 260, source_cap: int = 190) -> str:
-    """Return the SLM evidence span without a mid-word cut."""
-    text = (text or "").strip()
-    if not text:
-        return ""
-    over_limit = len(text) > limit
-    if over_limit:
-        text = text[:limit].rstrip()
-    if not _SENTENCE_END.search(text):
-        if (over_limit or len(text) >= source_cap) and " " in text:
-            text = text[: text.rfind(" ")].rstrip(" ,;:-")
-        text += "…"  # honest marker that this is an excerpt
-    return text
+    for flag, phrase in CONCERN_PHRASES.items():
+        if _is_true(row, flag) and phrase not in flags:
+            flags.append(phrase)
+    return flags[:3]
 
 
 def _base_clause(row: dict, base: float) -> str:
@@ -279,63 +280,87 @@ def _base_clause(row: dict, base: float) -> str:
     return f"partial fit — {summary}" if summary else "limited production-ownership evidence"
 
 
+def _headline(base: float, drag, strong_drag: bool, flags: list[str], row: dict) -> str:
+    if strong_drag:
+        tag = _SHORT_TAG.get(drag[0], _drag_phrase(drag[0], row))
+        return (f"strong substance, held back by {tag}" if base >= 0.85
+                else f"held back by {tag}")
+    if flags:
+        return ("strong substance, data-quality flags noted" if base >= 0.85
+                else "data-quality flags noted")
+    if base < 0.6:
+        return "limited ownership evidence"
+    if base >= 0.97:
+        return "top-of-pool fit"
+    return "clears the bar across the board"
+
+
+def _drag_predicate(pct: int, phrase: str) -> str:
+    """Body phrasing for the dominant drag (>=5% reads as an explicit downweight)."""
+    return f"downweighted ~{pct}% due to {phrase}" if pct >= 5 else f"reduced by {phrase}"
+
+
+def _frame_canonical(ctx: dict) -> str:
+    """Verdict — headline. Title at Company, ~Xy exp (~Yy applied ML). Base, but drag."""
+    lead = ctx["titlecompany"] + f", ~{ctx['yoe']:.1f} yrs exp (~{ctx['applied']:.1f} yrs applied ML)"
+    cause = _cap(ctx["base_clause"])
+    if ctx["drag"] is not None:
+        cause += f", but {_drag_predicate(ctx['pct'], ctx['drag_phrase'])}"
+    parts = [f"{ctx['verdict']} — {ctx['headline']}. {lead}.", cause + "."]
+    if ctx["flags"]:
+        parts.append("Flags: " + ", ".join(ctx["flags"]) + ".")
+    elif ctx["reassure"]:
+        parts.append("No material data-quality flags.")
+    return " ".join(parts)
+
+
+def _frame_profile_led(ctx: dict) -> str:
+    """Verdict. Title at Company (~Yy applied ML…): base clause. Drag sentence."""
+    exp = f"~{ctx['applied']:.1f} yrs applied ML"
+    if ctx["yoe"] > ctx["applied"] + 0.3:
+        exp += f" of ~{ctx['yoe']:.1f} total"
+    parts = [f"{ctx['verdict']}. {ctx['titlecompany']} ({exp}): {ctx['base_clause']}."]
+    if ctx["drag"] is not None:
+        parts.append(_cap(_drag_predicate(ctx["pct"], ctx["drag_phrase"])) + ".")
+    if ctx["flags"]:
+        parts.append("Data-quality notes: " + ", ".join(ctx["flags"]) + ".")
+    elif ctx["reassure"]:
+        parts.append("Clean profile — no data-quality concerns.")
+    return " ".join(parts)
+
+
+_FRAMES = (_frame_canonical, _frame_profile_led)
+
+
 def compose_reasoning(row: dict) -> str:
     title = (row.get("current_title") or "Candidate").strip()
     company = (row.get("current_company") or "").strip()
-    yoe = row.get("years_of_experience") or 0.0
-    applied = row.get("applied_ml_years") or 0.0
     score = row.get("score") or 0.0
     base = row.get("base_score")
     base = float(base) if base is not None else score
 
-    lead = title + (f" at {company}" if company else "")
-    lead += f", ~{yoe:.1f} yrs exp (~{applied:.1f} yrs applied ML)"
-
     drag = _dominant_drag(row)
-    base_clause = _base_clause(row, base)
-    flags = _material_flags(row)
-
-    # Headline: the single cause framing a reviewer needs first. A drag only earns the
-    # headline when it materially moved the rank (>=7%); a ~5% trim is body-only so it
-    # never overstates the knock on an otherwise top candidate.
+    flags = _all_flags(row)
     strong_drag = drag is not None and (1.0 - drag[1]) >= 0.07
-    if strong_drag:
-        tag = _SHORT_TAG.get(drag[0], _drag_phrase(drag[0], row))
-        headline = (f"strong substance, held back by {tag}" if base >= 0.85
-                    else f"held back by {tag}")
-    elif flags:
-        headline = ("strong substance, data-quality flags noted" if base >= 0.85
-                    else "data-quality flags noted")
-    elif base < 0.6:
-        headline = "limited ownership evidence"
-    elif base >= 0.97:
-        headline = "top-of-pool fit"
-    else:
-        headline = "clears the bar across the board"
 
-    # Why-in-list, then why-not-higher in one causal sentence.
-    cause = base_clause[0].upper() + base_clause[1:]
-    if drag is not None:
-        pct = round((1.0 - drag[1]) * 100)
-        verb = (f"downweighted ~{pct}% on" if pct >= 5 else "reduced by")
-        cause += f", but {verb} {_drag_phrase(drag[0], row)}"
-    cause += "."
+    ctx = {
+        "verdict": _verdict(score),
+        "titlecompany": title + (f" at {company}" if company else ""),
+        "yoe": float(row.get("years_of_experience") or 0.0),
+        "applied": float(row.get("applied_ml_years") or 0.0),
+        "base": base,
+        "base_clause": _base_clause(row, base),
+        "headline": _headline(base, drag, strong_drag, flags, row),
+        "drag": drag,
+        "pct": round((1.0 - drag[1]) * 100) if drag else 0,
+        "drag_phrase": _drag_phrase(drag[0], row) if drag else "",
+        "flags": flags,
+        # High substance pulled low purely by fit/availability, data clean -- say so, so a
+        # reviewer knows the low rank isn't a red flag.
+        "reassure": base >= 0.9 and drag is not None and drag[1] < 0.85 and not flags,
+    }
 
-    parts = [f"{_verdict(score)} — {headline}. {lead}.", cause]
-
-    # Flags: material data-quality penalties (computed above) first, then any profile-fit
-    # concern not already named. Capped so the line stays scannable.
-    for flag, phrase in CONCERN_PHRASES.items():
-        if _is_true(row, flag) and phrase not in flags:
-            flags.append(phrase)
-    if flags:
-        parts.append("Flags: " + ", ".join(flags[:3]) + ".")
-    elif base >= 0.9 and drag is not None and drag[1] < 0.85:
-        # High substance pulled low by fit/availability, nothing wrong with the data --
-        # say so, so a reviewer knows the low rank isn't a red flag.
-        parts.append("No material data-quality flags.")
-
-    quote = _clean_quote(row.get("evidence"))
-    if quote:
-        parts.append(f'Evidence: "{quote}".')
-    return " ".join(parts)
+    # Frame chosen from the candidate id, so structural variety is deterministic yet
+    # decorrelated from rank (no visible rank%N rotation).
+    digits = re.sub(r"\D", "", str(row.get("candidate_id") or "0")) or "0"
+    return _FRAMES[int(digits) % len(_FRAMES)](ctx)
