@@ -397,6 +397,8 @@
       "feature": "location_relocation_bucket",
       "map": {
         "local": 1.0,
+        "commutable_relocating": 0.97,
+        "commutable_not_relocating": 0.9,
         "tier1_relocating": 0.95,
         "tier1_not_relocating": 0.6,
         "other_india_relocating": 0.88,
@@ -901,9 +903,11 @@
         "ghaziabad",
         "faridabad"
       ],
-      "tier1_cities": [
+      "commutable_cities": [
         "mumbai",
-        "hyderabad",
+        "hyderabad"
+      ],
+      "tier1_cities": [
         "bangalore",
         "bengaluru",
         "chennai"

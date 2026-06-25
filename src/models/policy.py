@@ -183,6 +183,10 @@ class LocationLookups(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     local_cities: list[str] = Field(default_factory=list)
+    # Tier-1 cities the JD names as "welcome to apply" without relocating (reachable for
+    # quarterly offsites): Hyderabad, Mumbai. Distinct from tier1_cities (Bangalore/Chennai),
+    # which the JD treats as relocation-preferred.
+    commutable_cities: list[str] = Field(default_factory=list)
     tier1_cities: list[str] = Field(default_factory=list)
 
 

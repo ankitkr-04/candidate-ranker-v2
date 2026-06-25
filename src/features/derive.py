@@ -59,6 +59,7 @@ class FeatureDeriver:
 
         location = tuning.lookups.location
         self._local_cities = {normalize_city(x) for x in location.local_cities}
+        self._commutable_cities = {normalize_city(x) for x in location.commutable_cities}
         self._tier1_cities = {normalize_city(x) for x in location.tier1_cities}
 
         title = tuning.lookups.title
@@ -144,7 +145,12 @@ class FeatureDeriver:
         if city in self._local_cities:
             return "local"
         if normalize_token(c.profile.country) == _INDIA:
-            base = "tier1" if city in self._tier1_cities else "other_india"
+            if city in self._commutable_cities:
+                base = "commutable"
+            elif city in self._tier1_cities:
+                base = "tier1"
+            else:
+                base = "other_india"
         else:
             base = "outside"
         # The JD requires no fixed in-office days (async-first, quarterly travel only),
