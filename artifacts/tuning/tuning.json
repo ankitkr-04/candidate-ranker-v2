@@ -42,7 +42,9 @@
         "ic_role",
         "llm_api_wrapper_only",
         "pre_llm_ml_production",
-        "is_hobbyist_or_self_learner"
+        "is_hobbyist_or_self_learner",
+        "built_recruiter_or_jd_matching",
+        "scrappy_shipper"
       ],
       "deterministic": {
         "current_is_services": "current_company in lookups.company.it_services",

@@ -85,10 +85,19 @@ def _facts_schema(tuning: Tuning) -> dict:
 
 
 def existing_slm_facts(parquet_path, tuning: Tuning) -> dict[str, dict]:
-    """Map candidate_id -> SLM columns for rows already scored, for incremental runs."""
+    """Map candidate_id -> SLM columns for rows already scored, for incremental runs.
+
+    Robust to schema growth: when the question set gains a column the existing parquet
+    does not have yet, only the columns actually present are read (the new ones are left
+    unfilled). This lets a deterministic rebuild preserve prior facts, and lets a later
+    SLM run backfill just the missing columns, instead of crashing on a missing column.
+    """
     if not parquet_path.is_file():
         return {}
-    columns = ["candidate_id"] + slm_columns(tuning)
+    available = set(pl.scan_parquet(parquet_path).collect_schema().names())
+    columns = [c for c in (["candidate_id"] + slm_columns(tuning)) if c in available]
+    if _SUBJECT not in columns:
+        return {}
     done = pl.read_parquet(parquet_path, columns=columns).filter(
         pl.col(_SUBJECT).is_not_null()
     )

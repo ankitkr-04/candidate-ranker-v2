@@ -23,7 +23,7 @@ from src.features.build import build_feature_row
 from src.features.derive import FeatureDeriver
 from src.features.integrity import IntegrityDeriver
 from src.models.candidate import Candidate
-from src.models.features import parquet_schema
+from src.models.features import parquet_schema, slm_flag_columns
 from src.models.integrity import IntegrityPolicy, load_integrity
 from src.models.tuning import SlmQuestionSet, Tuning
 from src.paths import CANDIDATES_DIR, TUNING_ARTIFACT_DIR, pool_artifact_dir
@@ -144,15 +144,24 @@ def run_slm_stage(
 
     questions = load_questions()
     cached = {} if force else existing_slm_facts(out_path, tuning)
+    # A cached row is reusable only if it carries every current SLM flag. When the
+    # question set grows, rows scored under the old schema lack the new columns, so they
+    # are recomputed to backfill those flags rather than being silently skipped. Rows the
+    # ceiling no longer selects keep their existing (possibly partial) facts untouched.
+    required = ["subject_of_primary_work", *slm_flag_columns(tuning)]
+    complete = {
+        cid for cid, fact in cached.items() if all(fact.get(col) is not None for col in required)
+    }
     selected = select_for_slm(table, tuning, slm_ceiling, integrity)
-    todo = [c for c in candidates if c.candidate_id in selected and c.candidate_id not in cached]
+    todo = [c for c in candidates if c.candidate_id in selected and c.candidate_id not in complete]
     print(
         f"SLM pre-filter: {len(selected)}/{len(candidates)} selected "
         f"(ceiling >= {slm_ceiling}), {len(candidates) - len(selected)} skipped"
     )
-    print(f"SLM: {len(cached)} cached, {len(todo)} to compute")
+    print(f"SLM: {len(complete)} complete cached, {len(todo)} to compute")
 
-    facts = list(cached.values())
+    todo_ids = {c.candidate_id for c in todo}
+    facts = [fact for cid, fact in cached.items() if cid not in todo_ids]
     if not todo:
         return apply_slm_facts(table, facts, tuning)
 
