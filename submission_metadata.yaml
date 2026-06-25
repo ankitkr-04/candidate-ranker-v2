@@ -15,20 +15,16 @@ primary_contact:
 
 team_members:
   - name: "Ankit Kumar"
-    email: "member1@example.com"
-    role: "ML Systems & Architecture Engineer"
+    email: "ak0182274@gmail.com"
 
   - name: "Ayush Singh Tomar"
     email: "ayushtomarrudra@gmail.com"
-    role: "AI/LLM Engineer"
     
   - name: "Kaustubh Verma"
     email: "kaustubhverma2302@gmail.com"
-    role: "Data Platform & Engineering Engineer"
 
   - name: "Nalin Dalal"
     email: "nalindalal2004@gmail.com"
-    role: "Applied Machine Learning & Ranking Systems Engineer"
 
 # ============================================================================
 # Code and reproducibility
