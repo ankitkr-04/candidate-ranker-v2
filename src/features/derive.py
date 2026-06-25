@@ -147,7 +147,17 @@ class FeatureDeriver:
             base = "tier1" if city in self._tier1_cities else "other_india"
         else:
             base = "outside"
-        suffix = "relocating" if c.redrob_signals.willing_to_relocate else "not_relocating"
+        # The JD requires no fixed in-office days (async-first, quarterly travel only),
+        # so an India-based candidate working remote/flexible does not need to relocate
+        # to be reachable -- treat them as the relocating (reachable) case. Outside India
+        # still carries the work-authorisation constraint, so remote does not substitute.
+        preferred_work_mode = c.redrob_signals.preferred_work_mode or ""
+        remote_reachable = base != "outside" and normalize_token(preferred_work_mode) in {
+            "remote",
+            "flexible",
+        }
+        reachable = c.redrob_signals.willing_to_relocate or remote_reachable
+        suffix = "relocating" if reachable else "not_relocating"
         return f"{base}_{suffix}"
 
     def verification_state(self, c: Candidate) -> str:
