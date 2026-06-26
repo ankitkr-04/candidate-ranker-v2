@@ -549,23 +549,23 @@
       "direction": "max",
       "bands": [
         {
-          "at": 60.0,
+          "at": 30.0,
           "value": 1.0
         },
         {
-          "at": 75.0,
-          "value": 0.85
+          "at": 60.0,
+          "value": 0.9
         },
         {
           "at": 90.0,
-          "value": 0.7
+          "value": 0.8
         },
         {
           "at": 120.0,
-          "value": 0.5
+          "value": 0.65
         },
         {
-          "value": 0.4
+          "value": 0.5
         }
       ]
     },
