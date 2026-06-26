@@ -55,7 +55,7 @@
         "is_local": "normalized location in lookups.location.local_cities",
         "prefers_remote": "redrob_signals.preferred_work_mode == 'remote'",
         "open_to_work_flag": "redrob_signals.open_to_work_flag",
-        "enterprise_lifer": "every career role at a 10001+ employer (>=2 roles); whole-career big-enterprise tenure the JD warns against",
+        "enterprise_lifer": "every career role at a 10001+ employer (>=2 roles). COMPUTED BUT NO LONGER SCORED: the JD never penalizes big/product-company tenure -- it only rejects consulting-only careers (handled by company_context + lifelong_services gate) and rewards scrappy shippers (shipper_bonus). Headcount 10001+ caught product-company veterans (Uber/Microsoft/Amazon), which is the JD's ideal candidate, not a risk. Retained like prefers_remote: harmless, unused.",
         "has_skill_assessment": "redrob_signals.skill_assessment_scores is non-empty; presence (not value) is a platform-engagement signal"
       }
     },
@@ -310,20 +310,6 @@
             ]
           },
           "value": 0.9
-        }
-      ]
-    },
-    {
-      "type": "conditional",
-      "id": "enterprise_lifer_overlay",
-      "default": 1.0,
-      "cases": [
-        {
-          "when": {
-            "flag": "enterprise_lifer",
-            "negate": false
-          },
-          "value": 0.7
         }
       ]
     },
