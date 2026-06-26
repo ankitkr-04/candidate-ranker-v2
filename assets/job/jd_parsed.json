@@ -406,35 +406,6 @@
       "default": 0.4
     },
     {
-      "id": "work_mode_overlay",
-      "type": "conditional",
-      "default": 1.0,
-      "cases": [
-        {
-          "when": {
-            "all": [
-              {
-                "flag": "prefers_remote"
-              },
-              {
-                "not": {
-                  "any": [
-                    {
-                      "flag": "is_local"
-                    },
-                    {
-                      "flag": "willing_to_relocate"
-                    }
-                  ]
-                }
-              }
-            ]
-          },
-          "value": 0.78
-        }
-      ]
-    },
-    {
       "id": "verification",
       "type": "lookup",
       "feature": "verification_state",
@@ -890,7 +861,9 @@
       "tier1_cities": [
         "bangalore",
         "bengaluru",
-        "chennai"
+        "chennai",
+        "kolkata",
+        "ahmedabad"
       ]
     },
     "title": {

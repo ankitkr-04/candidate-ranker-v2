@@ -153,17 +153,14 @@ class FeatureDeriver:
                 base = "other_india"
         else:
             base = "outside"
-        # The JD requires no fixed in-office days (async-first, quarterly travel only),
-        # so an India-based candidate working remote/flexible does not need to relocate
-        # to be reachable -- treat them as the relocating (reachable) case. Outside India
-        # still carries the work-authorisation constraint, so remote does not substitute.
-        preferred_work_mode = c.redrob_signals.preferred_work_mode or ""
-        remote_reachable = base != "outside" and normalize_token(preferred_work_mode) in {
-            "remote",
-            "flexible",
-        }
-        reachable = c.redrob_signals.willing_to_relocate or remote_reachable
-        suffix = "relocating" if reachable else "not_relocating"
+        # Location fit is governed by where the candidate is based and whether they will
+        # relocate -- not by work-mode preference. The JD's "async-first / no required
+        # in-office days" describes working *style* (it lives in the vibe check), not a
+        # licence to live anywhere: the logistics section names a deliberate exempt-from-
+        # relocation whitelist (Hyderabad, Pune, Mumbai, Delhi NCR) and pointedly omits
+        # Bangalore/Chennai. A remote preference does not substitute for being in an exempt
+        # city or agreeing to relocate.
+        suffix = "relocating" if c.redrob_signals.willing_to_relocate else "not_relocating"
         return f"{base}_{suffix}"
 
     def verification_state(self, c: Candidate) -> str:
