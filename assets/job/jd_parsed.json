@@ -992,12 +992,12 @@
   },
   "slm_questions": {
     "input_scope": "career_history only (titles, companies, descriptions, is_current). No education/skills/location/signals.",
-    "extraction_order": "emit subject_of_primary_work and a 1-line evidence span first, then booleans. Never alphabetize the schema.",
+    "extraction_order": "emit subject_of_primary_work and a 1-line evidence span first, then booleans. Never alphabetize the schema. Judge domain/topic booleans by the product domain explicitly named in the description -- never infer a domain from generic words like 'match', 'relevance', 'ranking', or 'recommendation'. Default every boolean to false unless the evidence span you quoted directly supports it.",
     "ask": [
       {
         "id": "subject_of_primary_work",
         "type": "string",
-        "q": "In the candidate's most ML-relevant role, who performed the core ML/retrieval/ranking work — the candidate personally, their team/colleagues, or a team they managed? Quote the phrase that tells you."
+        "q": "In the candidate's most ML-relevant role, who performed the core ML/retrieval/ranking work? Answer with exactly one of: 'candidate personally', 'team/colleagues', or 'managed a team', then quote the phrase that shows it. Output only that answer -- never restate or echo this question."
       },
       {
         "id": "owns_retrieval_prod",
@@ -1009,7 +1009,7 @@
       },
       {
         "id": "owns_eval_framework",
-        "q": "Did the candidate design an evaluation framework for a ranking/retrieval system (NDCG/MRR/MAP, offline-to-online correlation, or A/B-test interpretation)?"
+        "q": "Did the candidate design an evaluation framework specifically for a ranking, retrieval, or recommendation system -- e.g. NDCG/MRR/MAP, offline-to-online correlation, or interpreting A/B tests of ranking/relevance quality? Answer NO for generic product or business A/B testing and experimentation platforms that are not tied to ranking/retrieval quality."
       },
       {
         "id": "strong_python_prod",
@@ -1057,7 +1057,7 @@
       },
       {
         "id": "hrtech_or_marketplace_exp",
-        "q": "Does the candidate have HR-tech, recruiting-tech, or marketplace-product experience?"
+        "q": "Has the candidate worked on an HR-tech, recruiting-tech, jobs/hiring, or marketplace PRODUCT -- judged by the product/company domain, not the ML technique (e.g. job boards, talent platforms, gig or e-commerce marketplaces that connect two sides)? Answer NO for internal tooling, enterprise SaaS, or knowledge-base/document systems that are not marketplaces."
       },
       {
         "id": "prod_ml_ops",
@@ -1065,11 +1065,11 @@
       },
       {
         "id": "external_validation",
-        "q": "Does the history explicitly mention papers, talks, or open-source contributions?"
+        "q": "Does the history explicitly mention EXTERNAL validation of the candidate's work -- published papers, conference/meetup talks, open-source projects, patents, or public technical blog posts? Answer NO for internal-only signals such as A/B tests, QA, or human relevance judgments."
       },
       {
         "id": "first_person_ownership",
-        "q": "Is the ML work described in first-person ownership terms (built/shipped/designed/implemented by the candidate)?"
+        "q": "Did the candidate personally own the core ML/retrieval/ranking/modeling work -- i.e. they built the model/ranking/retrieval system itself? Answer NO when their hands-on work was the serving API, pipelines, infrastructure, or integration around someone else's model, or when they describe their own modeling as 'secondary' or say another team handled it -- even if it is phrased in the first person."
       },
       {
         "id": "primarily_adjacent",
@@ -1121,7 +1121,7 @@
       },
       {
         "id": "built_recruiter_or_jd_matching",
-        "q": "Is the candidate's hands-on work building recruiter-facing search, candidate-to-job matching, talent-intelligence, or hiring/ATS ranking systems specifically -- as opposed to generic e-commerce, ads, feed, or content ranking?"
+        "q": "Is the candidate's hands-on work specifically in the HIRING/TALENT domain -- recruiter-facing candidate search, candidate-to-job or resume-to-JD matching, talent intelligence, or hiring/ATS ranking? Answer YES only when the description explicitly names recruiting, hiring, candidates, resumes/CVs, job-seekers, talent, or ATS. Answer NO for generic search, e-commerce or product recommendation, ads, content/news feeds, marketplace recsys, knowledge-base or document search, and support chatbots -- even when they mention 'matching', 'relevance', 'ranking', or 'recommendation'."
       },
       {
         "id": "scrappy_shipper",
