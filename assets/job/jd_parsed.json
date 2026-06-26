@@ -399,7 +399,7 @@
         "tier1_relocating": 0.95,
         "tier1_not_relocating": 0.6,
         "other_india_relocating": 0.88,
-        "other_india_not_relocating": 0.4,
+        "other_india_not_relocating": 0.55,
         "outside_relocating": 0.15,
         "outside_not_relocating": 0.04
       },
