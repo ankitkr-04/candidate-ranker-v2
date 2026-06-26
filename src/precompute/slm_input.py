@@ -25,12 +25,25 @@ def slm_columns(tuning: Tuning) -> list[str]:
 
 
 def career_history_text(candidate: Candidate) -> str:
+    # Role descriptions in this pool are drawn from a tiny set of shared templates: the
+    # same paragraph recurs across a candidate's roles (and across the pool) regardless of
+    # company, so it carries no per-role evidence. Listing it verbatim under every role lets
+    # repetition anchor the model on whatever that one template emphasises and drown the
+    # genuinely distinct descriptions. We keep every role's title/company/duration (the real,
+    # verifiable proof) but print each identical description only once, back-referencing
+    # repeats, so a single distinct line gets equal footing with a thrice-repeated template.
     lines = []
+    seen: dict[str, int] = {}
     for index, role in enumerate(candidate.career_history, start=1):
         marker = " (current)" if role.is_current else ""
         lines.append(f"{index}. {role.title} at {role.company}{marker} - {role.duration_months} months")
         if role.description:
-            lines.append(f"   {role.description}")
+            first = seen.get(role.description)
+            if first is None:
+                seen[role.description] = index
+                lines.append(f"   {role.description}")
+            else:
+                lines.append(f"   (description identical to role {first})")
     return "\n".join(lines) if lines else "(no career history provided)"
 
 
