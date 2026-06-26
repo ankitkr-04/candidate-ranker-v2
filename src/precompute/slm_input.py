@@ -75,10 +75,13 @@ def build_messages(candidate: Candidate, questions: SlmQuestions) -> list[dict]:
     # Instructions and the question set are identical for every candidate, so they go in the
     # system message: vLLM prefix-caching computes this large block once and reuses it across
     # the pool, leaving only the short career history to prefill per candidate.
+    # Job-agnostic: the role's specifics live entirely in the question set (driven by the
+    # parsed JD), not here. The harness only enforces how to read -- strictly from career
+    # history, no assumed facts -- so the same code screens for any role the questions describe.
     system = (
-        "You screen candidates for a senior AI/ML engineering role. Judge strictly from the "
-        "candidate's career history. Do not assume facts that are not stated; when the history "
-        "does not support a claim, answer false.\n\n"
+        "You screen job candidates against a fixed set of screening questions. Judge strictly "
+        "from the candidate's career history. Do not assume facts that are not stated; when the "
+        "history does not support a claim, answer false.\n\n"
         f"First, {_SUBJECT}: {subject_q}\n"
         "Then give an evidence span: quote one complete sentence from the history that you "
         "relied on. Quote it verbatim and do not stop mid-sentence.\n"
