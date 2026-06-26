@@ -141,6 +141,11 @@ class CareerSubstance(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     additive: dict[str, float]
+    # Optional precondition per additive flag: the flag's credit is granted only when
+    # its predicate also holds. Encodes logical dependencies the SLM can't be trusted
+    # to enforce (e.g. owns_eval_framework requires an actual ranking/retrieval system
+    # to evaluate), keeping the rule policy-driven rather than hardcoded in the scorer.
+    requires: dict[str, "Predicate"] = Field(default_factory=dict)
     gates: list[Gate] = Field(default_factory=list)
     clamp: tuple[float, float]
 

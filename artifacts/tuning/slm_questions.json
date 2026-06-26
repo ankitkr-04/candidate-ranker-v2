@@ -17,7 +17,7 @@
     },
     {
       "id": "owns_eval_framework",
-      "q": "Did the candidate design an evaluation framework specifically for a ranking, retrieval, or recommendation system -- e.g. NDCG/MRR/MAP, offline-to-online correlation, or interpreting A/B tests of ranking/relevance quality? Answer NO for generic product or business A/B testing and experimentation platforms that are not tied to ranking/retrieval quality."
+      "q": "Did the candidate build an evaluation system that measures RANKING or RETRIEVAL quality, using metrics like NDCG, MRR, MAP, recall@k, precision@k, or offline-to-online correlation of ranking quality? This requires the candidate to actually have a ranking/retrieval/recommendation system. Answer NO if they have no such system, or if their 'experimentation framework' / A/B testing only measured generic product metrics (conversion, retention, engagement, churn) rather than ranking or retrieval quality."
     },
     {
       "id": "strong_python_prod",
@@ -73,7 +73,7 @@
     },
     {
       "id": "external_validation",
-      "q": "Does the history explicitly mention EXTERNAL validation of the candidate's work -- published papers, conference/meetup talks, open-source projects, patents, or public technical blog posts? Answer NO for internal-only signals such as A/B tests, QA, or human relevance judgments."
+      "q": "Does the history explicitly name a concrete external artifact produced by the candidate -- a published paper, a conference or meetup talk, a named open-source project or public repository, a patent, or a public blog post? Answer NO if none of these is explicitly named. Internal work is NOT an artifact: A/B tests, human relevance judgments, dashboards, and QA do not count."
     },
     {
       "id": "first_person_ownership",

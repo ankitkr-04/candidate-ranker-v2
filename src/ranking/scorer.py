@@ -111,7 +111,16 @@ def _stage_expr(stage) -> pl.Expr:
 def _career_substance_expr(tuning: Tuning) -> pl.Expr:
     cs = tuning.career_substance
     additive = pl.sum_horizontal(
-        [pl.when(pl.col(flag)).then(pl.lit(weight)).otherwise(0.0) for flag, weight in cs.additive.items()]
+        [
+            pl.when(
+                pl.col(flag) & compile_predicate(cs.requires[flag])
+                if flag in cs.requires
+                else pl.col(flag)
+            )
+            .then(pl.lit(weight))
+            .otherwise(0.0)
+            for flag, weight in cs.additive.items()
+        ]
     )
     expr = additive
     for gate in cs.gates:

@@ -140,6 +140,14 @@
       "hrtech_or_marketplace_exp": 0.03,
       "external_validation": 0.02
     },
+    "requires": {
+      "owns_eval_framework": {
+        "any": [
+          { "flag": "owns_ranking_prod" },
+          { "flag": "owns_retrieval_prod" }
+        ]
+      }
+    },
     "gates": [
       {
         "when": {
