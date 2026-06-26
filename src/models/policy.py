@@ -137,14 +137,32 @@ class Gate(BaseModel):
     id: Optional[str] = None
 
 
+class BonusTier(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Nice-to-have flags -- the JD's "Things we'd like but won't reject you for". Credited
+    # in proportion to base strength: bonus * clamp(base / knee, 0, 1). At base >= knee the
+    # full bonus applies (it differentiates already-qualified candidates, e.g. two ranking
+    # owners where one also has distributed-systems depth); below knee the bonus is scaled
+    # down so extras can never substitute for a missing core ("absolutely need") requirement.
+    additive: dict[str, float]
+    knee: float
+
+
 class CareerSubstance(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    # Base tier: the JD's "Things you absolutely need" + the role mandate (own
+    # retrieval/ranking, ship a system, evaluate it). This alone decides whether a
+    # candidate meets the JD; the gates below and the bonus tier modulate it.
     additive: dict[str, float]
-    # Optional precondition per additive flag: the flag's credit is granted only when
-    # its predicate also holds. Encodes logical dependencies the SLM can't be trusted
-    # to enforce (e.g. owns_eval_framework requires an actual ranking/retrieval system
-    # to evaluate), keeping the rule policy-driven rather than hardcoded in the scorer.
+    # Optional second tier, gated on base strength so nice-to-haves lift the qualified
+    # but cannot lift a candidate who lacks the core. See BonusTier.
+    bonus: Optional[BonusTier] = None
+    # Optional precondition per flag (base or bonus): the flag's credit is granted only
+    # when its predicate also holds. Encodes logical dependencies the SLM can't be trusted
+    # to enforce (e.g. owns_eval_framework / ltr_experience require an actual
+    # ranking/retrieval system underneath), keeping the rule policy-driven not hardcoded.
     requires: dict[str, "Predicate"] = Field(default_factory=dict)
     gates: list[Gate] = Field(default_factory=list)
     clamp: tuple[float, float]

@@ -23,12 +23,10 @@
         "ltr_experience",
         "reranker_twostage",
         "relevance_judgment_pipeline",
-        "realtime_ml_serving",
         "llm_finetuning",
         "ab_testing_ml",
         "distributed_systems_scale",
         "hrtech_or_marketplace_exp",
-        "prod_ml_ops",
         "external_validation",
         "first_person_ownership",
         "primarily_adjacent",
@@ -114,22 +112,85 @@
       "owns_eval_framework": 0.18,
       "owns_ranking_prod": 0.14,
       "vector_db_prod": 0.1,
-      "shipped_endtoend_at_scale": 0.06,
       "retrieval_ops_depth": 0.08,
-      "ltr_experience": 0.06,
-      "reranker_twostage": 0.05,
-      "relevance_judgment_pipeline": 0.05,
-      "realtime_ml_serving": 0.04,
-      "llm_finetuning": 0.04,
+      "shipped_endtoend_at_scale": 0.06,
       "strong_python_prod": 0.04,
-      "prod_ml_ops": 0.04,
-      "ab_testing_ml": 0.03,
-      "distributed_systems_scale": 0.03,
-      "hrtech_or_marketplace_exp": 0.03,
-      "external_validation": 0.02
+      "ab_testing_ml": 0.03
+    },
+    "bonus": {
+      "additive": {
+        "ltr_experience": 0.06,
+        "reranker_twostage": 0.05,
+        "relevance_judgment_pipeline": 0.05,
+        "llm_finetuning": 0.04,
+        "distributed_systems_scale": 0.03,
+        "hrtech_or_marketplace_exp": 0.03,
+        "external_validation": 0.02
+      },
+      "knee": 0.5
     },
     "requires": {
       "owns_eval_framework": {
+        "any": [
+          {
+            "flag": "owns_ranking_prod",
+            "negate": false
+          },
+          {
+            "flag": "owns_retrieval_prod",
+            "negate": false
+          }
+        ]
+      },
+      "retrieval_ops_depth": {
+        "any": [
+          {
+            "flag": "owns_ranking_prod",
+            "negate": false
+          },
+          {
+            "flag": "owns_retrieval_prod",
+            "negate": false
+          }
+        ]
+      },
+      "shipped_endtoend_at_scale": {
+        "any": [
+          {
+            "flag": "owns_ranking_prod",
+            "negate": false
+          },
+          {
+            "flag": "owns_retrieval_prod",
+            "negate": false
+          }
+        ]
+      },
+      "ltr_experience": {
+        "any": [
+          {
+            "flag": "owns_ranking_prod",
+            "negate": false
+          },
+          {
+            "flag": "owns_retrieval_prod",
+            "negate": false
+          }
+        ]
+      },
+      "reranker_twostage": {
+        "any": [
+          {
+            "flag": "owns_ranking_prod",
+            "negate": false
+          },
+          {
+            "flag": "owns_retrieval_prod",
+            "negate": false
+          }
+        ]
+      },
+      "relevance_judgment_pipeline": {
         "any": [
           {
             "flag": "owns_ranking_prod",

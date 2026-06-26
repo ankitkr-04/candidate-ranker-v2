@@ -108,25 +108,38 @@ def _stage_expr(stage) -> pl.Expr:
     raise TypeError(f"Unsupported multiplier stage: {type(stage).__name__}")
 
 
-def _career_substance_expr(tuning: Tuning) -> pl.Expr:
-    cs = tuning.career_substance
-    additive = pl.sum_horizontal(
+def _tier_sum(weights: dict[str, float], requires) -> pl.Expr:
+    """Sum a tier's flag weights, granting a flag's weight only when its (optional)
+    `requires` predicate also holds. Shared by the base and bonus tiers."""
+    return pl.sum_horizontal(
         [
             pl.when(
-                pl.col(flag) & compile_predicate(cs.requires[flag])
-                if flag in cs.requires
+                pl.col(flag) & compile_predicate(requires[flag])
+                if flag in requires
                 else pl.col(flag)
             )
             .then(pl.lit(weight))
             .otherwise(0.0)
-            for flag, weight in cs.additive.items()
+            for flag, weight in weights.items()
         ]
     )
-    expr = additive
-    for gate in cs.gates:
-        expr = expr * pl.when(compile_predicate(gate.when)).then(pl.lit(gate.multiplier)).otherwise(1.0)
+
+
+def _career_substance_expr(tuning: Tuning) -> pl.Expr:
+    cs = tuning.career_substance
     low, high = cs.clamp
-    return expr.clip(low, high)
+    # Base tier: the JD's hard requirements, modulated by the ownership/domain gates.
+    base = _tier_sum(cs.additive, cs.requires)
+    for gate in cs.gates:
+        base = base * pl.when(compile_predicate(gate.when)).then(pl.lit(gate.multiplier)).otherwise(1.0)
+    base = base.clip(low, high)
+    if cs.bonus is None:
+        return base
+    # Bonus tier: nice-to-haves credited in proportion to base strength (knee), so they
+    # differentiate qualified candidates but never substitute for a missing core flag.
+    bonus = _tier_sum(cs.bonus.additive, cs.requires)
+    scale = (base / cs.bonus.knee).clip(0.0, 1.0)
+    return (base + bonus * scale).clip(low, high)
 
 
 def _flag_columns(tuning: Tuning) -> list[str]:

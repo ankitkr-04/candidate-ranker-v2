@@ -17,7 +17,7 @@
     },
     {
       "id": "owns_eval_framework",
-      "q": "Did the candidate build an evaluation system that measures RANKING or RETRIEVAL quality, using metrics like NDCG, MRR, MAP, recall@k, precision@k, or offline-to-online correlation of ranking quality? This requires the candidate to actually have a ranking/retrieval/recommendation system. Answer NO if they have no such system, or if their 'experimentation framework' / A/B testing only measured generic product metrics (conversion, retention, engagement, churn) rather than ranking or retrieval quality."
+      "q": "Did the candidate build an evaluation system that measures RANKING or RETRIEVAL quality, using metrics like NDCG, MRR, MAP, recall@k, precision@k, or offline-to-online correlation? Answer NO if their 'experimentation framework' / A/B testing only measured generic product metrics (conversion, retention, engagement, churn) rather than ranking or retrieval quality."
     },
     {
       "id": "strong_python_prod",
@@ -48,10 +48,6 @@
       "q": "Has the candidate built a relevance-judgment or labeling pipeline for a ranking/search system?"
     },
     {
-      "id": "realtime_ml_serving",
-      "q": "Has the candidate built real-time / low-latency ML serving infrastructure?"
-    },
-    {
       "id": "llm_finetuning",
       "q": "Does the candidate have hands-on LLM fine-tuning experience (LoRA/QLoRA/PEFT), not just API calling?"
     },
@@ -66,10 +62,6 @@
     {
       "id": "hrtech_or_marketplace_exp",
       "q": "Has the candidate worked on an HR-tech, recruiting-tech, jobs/hiring, or marketplace PRODUCT -- judged by the product/company domain, not the ML technique (e.g. job boards, talent platforms, gig or e-commerce marketplaces that connect two sides)? Answer NO for internal tooling, enterprise SaaS, or knowledge-base/document systems that are not marketplaces."
-    },
-    {
-      "id": "prod_ml_ops",
-      "q": "Did the candidate run ML in production with real MLOps (deployment, monitoring, retraining), not just model training?"
     },
     {
       "id": "external_validation",

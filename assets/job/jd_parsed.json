@@ -35,12 +35,10 @@
         "ltr_experience",
         "reranker_twostage",
         "relevance_judgment_pipeline",
-        "realtime_ml_serving",
         "llm_finetuning",
         "ab_testing_ml",
         "distributed_systems_scale",
         "hrtech_or_marketplace_exp",
-        "prod_ml_ops",
         "external_validation",
         "first_person_ownership",
         "primarily_adjacent",
@@ -126,26 +124,41 @@
       "owns_eval_framework": 0.18,
       "owns_ranking_prod": 0.14,
       "vector_db_prod": 0.10,
-      "shipped_endtoend_at_scale": 0.06,
       "retrieval_ops_depth": 0.08,
-      "ltr_experience": 0.06,
-      "reranker_twostage": 0.05,
-      "relevance_judgment_pipeline": 0.05,
-      "realtime_ml_serving": 0.04,
-      "llm_finetuning": 0.04,
+      "shipped_endtoend_at_scale": 0.06,
       "strong_python_prod": 0.04,
-      "prod_ml_ops": 0.04,
-      "ab_testing_ml": 0.03,
-      "distributed_systems_scale": 0.03,
-      "hrtech_or_marketplace_exp": 0.03,
-      "external_validation": 0.02
+      "ab_testing_ml": 0.03
+    },
+    "bonus": {
+      "knee": 0.5,
+      "additive": {
+        "ltr_experience": 0.06,
+        "reranker_twostage": 0.05,
+        "relevance_judgment_pipeline": 0.05,
+        "llm_finetuning": 0.04,
+        "distributed_systems_scale": 0.03,
+        "hrtech_or_marketplace_exp": 0.03,
+        "external_validation": 0.02
+      }
     },
     "requires": {
       "owns_eval_framework": {
-        "any": [
-          { "flag": "owns_ranking_prod" },
-          { "flag": "owns_retrieval_prod" }
-        ]
+        "any": [ { "flag": "owns_ranking_prod" }, { "flag": "owns_retrieval_prod" } ]
+      },
+      "retrieval_ops_depth": {
+        "any": [ { "flag": "owns_ranking_prod" }, { "flag": "owns_retrieval_prod" } ]
+      },
+      "shipped_endtoend_at_scale": {
+        "any": [ { "flag": "owns_ranking_prod" }, { "flag": "owns_retrieval_prod" } ]
+      },
+      "ltr_experience": {
+        "any": [ { "flag": "owns_ranking_prod" }, { "flag": "owns_retrieval_prod" } ]
+      },
+      "reranker_twostage": {
+        "any": [ { "flag": "owns_ranking_prod" }, { "flag": "owns_retrieval_prod" } ]
+      },
+      "relevance_judgment_pipeline": {
+        "any": [ { "flag": "owns_ranking_prod" }, { "flag": "owns_retrieval_prod" } ]
       }
     },
     "gates": [
@@ -1017,7 +1030,7 @@
       },
       {
         "id": "owns_eval_framework",
-        "q": "Did the candidate build an evaluation system that measures RANKING or RETRIEVAL quality, using metrics like NDCG, MRR, MAP, recall@k, precision@k, or offline-to-online correlation of ranking quality? This requires the candidate to actually have a ranking/retrieval/recommendation system. Answer NO if they have no such system, or if their 'experimentation framework' / A/B testing only measured generic product metrics (conversion, retention, engagement, churn) rather than ranking or retrieval quality."
+        "q": "Did the candidate build an evaluation system that measures RANKING or RETRIEVAL quality, using metrics like NDCG, MRR, MAP, recall@k, precision@k, or offline-to-online correlation? Answer NO if their 'experimentation framework' / A/B testing only measured generic product metrics (conversion, retention, engagement, churn) rather than ranking or retrieval quality."
       },
       {
         "id": "strong_python_prod",
@@ -1048,10 +1061,6 @@
         "q": "Has the candidate built a relevance-judgment or labeling pipeline for a ranking/search system?"
       },
       {
-        "id": "realtime_ml_serving",
-        "q": "Has the candidate built real-time / low-latency ML serving infrastructure?"
-      },
-      {
         "id": "llm_finetuning",
         "q": "Does the candidate have hands-on LLM fine-tuning experience (LoRA/QLoRA/PEFT), not just API calling?"
       },
@@ -1066,10 +1075,6 @@
       {
         "id": "hrtech_or_marketplace_exp",
         "q": "Has the candidate worked on an HR-tech, recruiting-tech, jobs/hiring, or marketplace PRODUCT -- judged by the product/company domain, not the ML technique (e.g. job boards, talent platforms, gig or e-commerce marketplaces that connect two sides)? Answer NO for internal tooling, enterprise SaaS, or knowledge-base/document systems that are not marketplaces."
-      },
-      {
-        "id": "prod_ml_ops",
-        "q": "Did the candidate run ML in production with real MLOps (deployment, monitoring, retraining), not just model training?"
       },
       {
         "id": "external_validation",
