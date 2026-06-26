@@ -81,7 +81,10 @@ def build_messages(candidate: Candidate, questions: SlmQuestions) -> list[dict]:
     system = (
         "You screen job candidates against a fixed set of screening questions. Judge strictly "
         "from the candidate's career history. Do not assume facts that are not stated; when the "
-        "history does not support a claim, answer false.\n\n"
+        "history does not support a claim, answer false. Judge each question by what the history "
+        "explicitly describes -- never infer a domain or capability from generic words like "
+        "'match', 'relevance', 'ranking', or 'recommendation'; the work must actually be in the "
+        "domain the question asks about.\n\n"
         f"First, {_SUBJECT}: {subject_q}\n"
         "Then give an evidence span: quote one complete sentence from the history that you "
         "relied on. Quote it verbatim and do not stop mid-sentence.\n"
