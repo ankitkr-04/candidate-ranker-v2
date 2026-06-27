@@ -419,10 +419,10 @@
       "feature": "verification_state",
       "map": {
         "both": 1.0,
-        "one": 0.95,
-        "neither": 0.88
+        "one": 0.98,
+        "neither": 0.96
       },
-      "default": 0.88
+      "default": 0.96
     },
     {
       "id": "behavioral",
