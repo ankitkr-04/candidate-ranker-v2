@@ -192,19 +192,37 @@ def _verdict(score: float) -> str:
 
 
 def _availability_phrase(row: dict) -> str:
-    """The behavioral composite's concrete drivers, in recruiter terms."""
-    bits: list[str] = []
+    """Name the behavioral composite's *material* drivers, in recruiter terms.
+
+    The `behavioral` stage multiplies several signals (recency, recruiter response,
+    interview completion, open-to-work, recent applications). The dominant-drag % is the
+    NET composite effect, so naming inactivity alone is misleading: two candidates can
+    share an identical recency factor yet differ in net drag because of the OTHER signals
+    (e.g. one is open-to-work and applying, the other is neither). We therefore surface
+    every signal that is actually pulling the composite down -- ordered worst-first, each
+    gated at the knee where its curve starts biting -- so the stated causes match the
+    magnitude and never imply a day-count difference that the bands treat as immaterial.
+    """
+    drivers: list[tuple[float, str]] = []  # (drop magnitude, phrase); larger = worse
     days = row.get("last_active_days")
-    if days is not None and int(days) > 45:
-        bits.append(f"{int(days)}-day inactivity")
+    if days is not None and int(days) > 30:  # recency band knee (<=30d is clean)
+        drop = 0.55 if int(days) > 180 else (0.30 if int(days) > 90 else 0.10)
+        drivers.append((drop, f"{int(days)}-day inactivity"))
     rate = row.get("recruiter_response_rate")
     if rate is not None and rate < 0.6:
-        bits.append(f"{rate * 100:.0f}% recruiter-response")
+        drop = 0.55 if rate < 0.25 else (0.22 if rate < 0.45 else 0.08)
+        drivers.append((drop, f"{rate * 100:.0f}% recruiter-response"))
     ic = row.get("interview_completion_rate")
-    if ic is not None and ic < 0.5:
-        bits.append(f"{ic * 100:.0f}% interview-completion")
-    if row.get("open_to_work_flag") is False and not bits:
-        bits.append("not openly on the market")
+    if ic is not None and ic < 0.9:  # completion curve bites below 0.9, not 0.5
+        drop = 0.08 if ic < 0.5 else 0.04
+        drivers.append((drop, f"{ic * 100:.0f}% interview-completion"))
+    if row.get("open_to_work_flag") is False:  # a real 5% drag -- never hide it
+        drivers.append((0.05, "not openly on the market"))
+    apps = row.get("applications_submitted_30d")
+    if apps is not None and int(apps) == 0:
+        drivers.append((0.03, "no recent applications"))
+    drivers.sort(key=lambda d: d[0], reverse=True)
+    bits = [phrase for _, phrase in drivers[:3]]
     if bits:
         return "weak availability (" + ", ".join(bits) + ")"
     return "weak engagement/availability signals"
