@@ -23,6 +23,9 @@ Three rules keep it honest and un-templated:
 
 import re
 
+# Positive drivers, keyed to the live SLM flag set. Base-tier (JD "absolutely need")
+# and bonus-tier (JD "we'd like") flags both surface here; the tier split only governs
+# scoring, not how a fired strength is described to a reviewer.
 POSITIVE_PHRASES = {
     "owns_retrieval_prod": "owns production retrieval",
     "owns_ranking_prod": "owns a production ranking/recommendation system",
@@ -30,11 +33,13 @@ POSITIVE_PHRASES = {
     "vector_db_prod": "ran vector-DB infrastructure in production",
     "shipped_endtoend_at_scale": "shipped an end-to-end system at scale",
     "retrieval_ops_depth": "deep retrieval-operations experience",
+    "strong_python_prod": "strong production Python engineering",
+    "ab_testing_ml": "ran A/B tests on ML systems",
     "ltr_experience": "learning-to-rank experience",
     "reranker_twostage": "built a two-stage retrieve-then-rerank pipeline",
+    "relevance_judgment_pipeline": "ran a relevance-judgment/labeling pipeline",
     "llm_finetuning": "hands-on LLM fine-tuning",
-    "realtime_ml_serving": "real-time ML serving experience",
-    "prod_ml_ops": "production MLOps experience",
+    "distributed_systems_scale": "distributed-systems-at-scale experience",
     "hrtech_or_marketplace_exp": "HR-tech/marketplace experience",
     "external_validation": "papers, talks, or open-source contributions",
 }
@@ -67,9 +72,12 @@ _LOCATION_PHRASES = {
 # Title drag, by current_title_bucket. The role targets senior/staff/lead ML titles
 # (the `ideal` bucket); `strong_positive` titles (ML/AI/Search/Recsys Engineer) are
 # ML-aligned but one notch below that seniority -- so the phrasing is about seniority and
-# exactness of match, never "not ML-aligned".
+# exactness of match, never "not ML-aligned". `junior_ml` is core-ML by domain (e.g.
+# "Junior ML Engineer") but junior for a senior founding role -- the drag is seniority,
+# NOT a domain mismatch, so it must never read as "not explicitly ML".
 _TITLE_PHRASES = {
     "strong_positive": "a current title one notch below the target seniority",
+    "junior_ml": "an explicitly-ML title at junior seniority (below the senior bar)",
     "moderate_positive": "an ML-adjacent current title (data/analytics, not core ML engineering)",
     "neutral_read_description": "a generic current title (not explicitly ML)",
     "heavy_penalty": "a largely off-target current title",
@@ -129,11 +137,13 @@ _PENALTY_COUNT_NOUNS = {
 _MATERIAL = 0.025
 
 # Strength selection: top candidates share the JD-core flags but differ in specialisms.
+# Anchors are the base-tier "absolutely need" cores; specialists are the bonus-tier
+# "we'd like" differentiators surfaced after the anchor so two cores read distinctly.
 _ANCHOR_STRENGTHS = ("owns_retrieval_prod", "owns_ranking_prod", "owns_eval_framework", "vector_db_prod")
 _SPECIALIST_STRENGTHS = (
-    "reranker_twostage", "realtime_ml_serving", "external_validation", "llm_finetuning",
-    "retrieval_ops_depth", "ltr_experience", "hrtech_or_marketplace_exp", "prod_ml_ops",
-    "shipped_endtoend_at_scale",
+    "reranker_twostage", "ltr_experience", "relevance_judgment_pipeline", "external_validation",
+    "llm_finetuning", "distributed_systems_scale", "retrieval_ops_depth",
+    "hrtech_or_marketplace_exp", "shipped_endtoend_at_scale",
 )
 
 
@@ -161,7 +171,7 @@ def _select_strengths(row: dict) -> list[str]:
             phrases.append("AI-native company background")
         elif row.get("has_product_company"):
             phrases.append("product-company background")
-        elif row.get("current_title_bucket") in ("ideal", "strong_positive"):
+        elif row.get("current_title_bucket") in ("ideal", "strong_positive", "junior_ml"):
             phrases.append("ML-aligned current title")
     return phrases
 
