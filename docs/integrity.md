@@ -59,8 +59,8 @@ the same `python -m src.jd_parser.parse` command that regenerates `tuning.json`.
 ## Source format
 
 Reuses the same `Multiplier` / `Predicate` schema as the JD, so no new format or validator
-is needed. Adds `tool_eras` (era map for anachronism checks) and `params` (tunable
-thresholds):
+is needed. Adds `tool_eras` (era map for anachronism checks), `company_founding` (founding-year
+map for the predates check) and `params` (tunable thresholds):
 
 ```json
 {
@@ -73,6 +73,14 @@ thresholds):
     "langchain": 2022,
     "vector database": 2019,
     "chatgpt": 2022
+    ...
+  },
+  "company_founding": {
+    "Sarvam AI": 2023,
+    "Krutrim": 2023,
+    "CRED": 2018,
+    "Razorpay": 2014,
+    "Infosys": 1981
     ...
   },
   "params": {
@@ -93,7 +101,8 @@ thresholds):
     "flags": ["end_before_start", "career_months_overrun", "role_months_overrun",
               "current_role_date_conflict", "experience_exceeds_career_span",
               "senior_title_pre_graduation"],
-    "metrics": ["num_education_overlaps", "num_skill_anomalies", "num_proficiency_anomalies", "num_skill_anachronisms"]
+    "metrics": ["num_education_overlaps", "num_skill_anomalies", "num_proficiency_anomalies",
+                "num_skill_anachronisms", "years_predating_company"]
   },
   "penalties": [ ... ]
 }
@@ -156,6 +165,21 @@ later completes a part-time MBA does not false-positive.
 `tool_eras` only covers skills explicitly listed in the map; unrecognized skills are
 ignored. Adding a new tool = one line in `penalties.json`.
 
+### Company-founding plausibility (metric → banded curve)
+
+| metric | what it measures |
+|---|---|
+| `years_predating_company` | largest gap, in years, by which a role's start year precedes its company's founding year (`company_founding` map); 0 when no role predates its company |
+
+This is the one signal grounded in an **external** fact rather than internal arithmetic. A role's
+own dates can be perfectly self-consistent yet still impossible — the company did not exist when
+the candidate claims to have worked there, so no date-consistency check can see it. `company_founding`
+is the company analogue of `tool_eras`: a map of well-known companies to founding years in
+`penalties.json`. Only listed companies are checked, so the pool's fictional placeholder companies
+(which have no real founding year) are never flagged. The reading stays conservative — a curated map
+of unambiguous founding years, the candidate's own role start year as the only other input — so the
+false-positive surface is a single well-known integer per company.
+
 ---
 
 ## Penalty stages
@@ -179,9 +203,10 @@ graph LR
 
     subgraph "Escalating / soft compounding penalties"
         P1["skill_anachronism_penalty\nbanded curve (direction max):\n1→0.97, 2→0.82, 3→0.55, 4→0.33, 5+→0.20"]
-        P2["seniority_before_graduation_penalty\nconditional: 0.85 if flag fires"]
-        P3["education_overlap_penalty\ndecay: 0.98^num_education_overlaps, floor 0.92"]
-        P4["skill_anomaly_penalty\ndecay: 0.985^num_skill_anomalies, floor 0.93"]
+        P2["company_predates_penalty\nbanded curve (direction max):\n1→0.97, 2→0.80, 3→0.50, 4→0.30, 5+→0.18"]
+        P3["seniority_before_graduation_penalty\nconditional: 0.85 if flag fires"]
+        P4["education_overlap_penalty\ndecay: 0.98^num_education_overlaps, floor 0.92"]
+        P5["skill_anomaly_penalty\ndecay: 0.985^num_skill_anomalies, floor 0.93"]
     end
 ```
 
@@ -203,6 +228,14 @@ A fabricated profile sunk by the curve (e.g. CAND_0018499):
   ~0.45 — well out of the top, without ever being removed.
 
 A genuine senior engineer trips none of these → 1.0× (unaffected).
+
+**`company_predates` shares the curve shape for the same reason.** A one-year gap is forgiven
+(×0.97): a candidate can legitimately have joined during a stealth period before the public
+founding date, and a curated founding year can itself be off by a year. Beyond that the gap is
+not explainable — a role starting three or five years before the company existed is a planted
+impossibility — so the curve escalates steeply (2→0.80, 3→0.50, 4→0.30, 5+→0.18), sinking it out
+of contention while leaving the boundary cases essentially untouched. This is the only check that
+catches a profile whose internal dates are flawless but whose history contradicts the outside world.
 
 ---
 

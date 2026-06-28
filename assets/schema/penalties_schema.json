@@ -32,6 +32,13 @@
                 "type": "integer"
             }
         },
+        "company_founding": {
+            "type": "object",
+            "description": "company_name -> founding_year. A role starting before its company existed is impossible; the years_predating_company metric measures the gap. Optional; companies absent from the map are never checked.",
+            "additionalProperties": {
+                "type": "integer"
+            }
+        },
         "params": {
             "type": "object",
             "required": [

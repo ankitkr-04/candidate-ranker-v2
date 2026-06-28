@@ -162,6 +162,19 @@ See [integrity.md](integrity.md) for the full design rationale. The signals it p
 
 `implied_start_year = reference_year − duration_months / 12`
 
+### External-grounding signal (metric)
+
+| signal | what it measures |
+|---|---|
+| `years_predating_company` | largest gap, in years, by which a role's start year precedes its company's founding year (`company_founding` map); 0 when no role predates its company |
+
+A role whose own dates are internally consistent can still be impossible against the outside
+world — the company did not exist yet. This is the one signal that reads an external fact:
+`company_founding` in `penalties.json`, the company analogue of `tool_eras`. Only companies
+named in the map are checked, so the pool's fictional placeholder companies are never flagged.
+The penalty curve tolerates one year (stealth/incubation before a public founding date) and
+escalates steeply past it.
+
 ---
 
 ## build.py

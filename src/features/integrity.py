@@ -24,6 +24,9 @@ class IntegrityDeriver:
         self._min_senior_rank = integrity.params.seniority_min_rank
         self._span_buffer = integrity.params.experience_span_buffer_years
         self._tool_eras = {normalize_token(name): year for name, year in integrity.tool_eras.items()}
+        self._company_founding = {
+            normalize_token(name): year for name, year in integrity.company_founding.items()
+        }
         self._high_proficiency = {"expert", "advanced"}
         self._seniority_ladder = integrity.seniority_ladder
         self._flags = list(integrity.features.flags)
@@ -143,6 +146,23 @@ class IntegrityDeriver:
                 count += 1
         return float(count)
 
+    def years_predating_company(self, candidate: Candidate) -> float:
+        # Largest number of years by which a role's start predates its company's founding.
+        # Internal-consistency checks cannot catch this (the dates are self-consistent); only
+        # the external founding year reveals that the company did not exist yet. Companies not
+        # in the map are skipped, so this never fires on the pool's fictional placeholders.
+        worst = 0
+        for r in candidate.career_history:
+            if r.start_date is None or not r.company:
+                continue
+            founded = self._company_founding.get(normalize_token(r.company))
+            if founded is None:
+                continue
+            gap = founded - r.start_date.year
+            if gap > worst:
+                worst = gap
+        return float(worst)
+
     # Assembly ---------------------------------------------------------------
 
     def compute(self, candidate: Candidate, reference: date) -> dict[str, object]:
@@ -157,6 +177,7 @@ class IntegrityDeriver:
             "num_skill_anomalies": self.num_skill_anomalies(candidate),
             "num_proficiency_anomalies": self.num_proficiency_anomalies(candidate),
             "num_skill_anachronisms": self.num_skill_anachronisms(candidate, reference.year),
+            "years_predating_company": self.years_predating_company(candidate),
         }
         # Return only the columns the policy declares, so the asset stays the source of truth.
         return {column: values[column] for column in self.columns}

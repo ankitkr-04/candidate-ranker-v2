@@ -30,6 +30,63 @@
     "pgvector": 2021,
     "opensearch": 2021
   },
+  "company_founding": {
+    "TCS": 1968,
+    "Wipro": 1945,
+    "Infosys": 1981,
+    "HCL": 1976,
+    "Capgemini": 1967,
+    "Accenture": 1989,
+    "Cognizant": 1994,
+    "Tech Mahindra": 1986,
+    "Mindtree": 1999,
+    "Mphasis": 1998,
+    "Genpact AI": 1997,
+    "Apple": 1976,
+    "Microsoft": 1975,
+    "Google": 1998,
+    "Amazon": 1994,
+    "Meta": 2004,
+    "Netflix": 1997,
+    "Adobe": 1982,
+    "Salesforce": 1999,
+    "LinkedIn": 2003,
+    "Uber": 2009,
+    "Flipkart": 2007,
+    "InMobi": 2007,
+    "Zoho": 1996,
+    "Dream11": 2008,
+    "PolicyBazaar": 2008,
+    "Zomato": 2008,
+    "Ola": 2010,
+    "Paytm": 2010,
+    "Freshworks": 2010,
+    "BYJU'S": 2011,
+    "Vedantu": 2011,
+    "Nykaa": 2012,
+    "Haptik": 2013,
+    "Mad Street Den": 2013,
+    "Swiggy": 2014,
+    "Razorpay": 2014,
+    "Meesho": 2015,
+    "PhonePe": 2015,
+    "Unacademy": 2015,
+    "PharmEasy": 2015,
+    "upGrad": 2015,
+    "Wysa": 2015,
+    "Locobuzz": 2015,
+    "Yellow.ai": 2016,
+    "Verloop.io": 2016,
+    "Niramai": 2016,
+    "Aganitha": 2016,
+    "Observe.AI": 2017,
+    "Saarthi.ai": 2017,
+    "CRED": 2018,
+    "Glance": 2019,
+    "Rephrase.ai": 2019,
+    "Sarvam AI": 2023,
+    "Krutrim": 2023
+  },
   "params": {
     "overrun_slack_months": 18.0,
     "seniority_min_rank": 3,
@@ -89,7 +146,8 @@
       "num_education_overlaps",
       "num_skill_anomalies",
       "num_proficiency_anomalies",
-      "num_skill_anachronisms"
+      "num_skill_anachronisms",
+      "years_predating_company"
     ]
   },
   "penalties": [
@@ -212,6 +270,37 @@
         },
         {
           "value": 0.2
+        }
+      ]
+    },
+    {
+      "type": "curve",
+      "id": "company_predates_penalty",
+      "feature": "years_predating_company",
+      "direction": "max",
+      "bands": [
+        {
+          "at": 0.0,
+          "value": 1.0
+        },
+        {
+          "at": 1.0,
+          "value": 0.97
+        },
+        {
+          "at": 2.0,
+          "value": 0.8
+        },
+        {
+          "at": 3.0,
+          "value": 0.5
+        },
+        {
+          "at": 4.0,
+          "value": 0.3
+        },
+        {
+          "value": 0.18
         }
       ]
     },

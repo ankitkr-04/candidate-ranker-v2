@@ -82,6 +82,12 @@ class IntegrityPolicy(BaseModel):
     # Normalized skill/tool name -> earliest year the tool plausibly existed. A skill whose
     # implied start year precedes this is anachronistic.
     tool_eras: dict[str, int] = Field(default_factory=dict)
+    # Company name -> founding year. A role whose start year predates this could not have
+    # happened: the company did not exist yet. Only well-known companies with an unambiguous
+    # founding year are listed; companies absent from the map (incl. the pool's fictional
+    # placeholders) are never checked. The penalty bands tolerate a year of slack for
+    # stealth/incubation and escalate steeply beyond that.
+    company_founding: dict[str, int] = Field(default_factory=dict)
     params: IntegrityParams = Field(default_factory=IntegrityParams)
     # Job-agnostic title seniority ladder (shared by the JD feature and the integrity check).
     seniority_ladder: SeniorityLadder = Field(default_factory=SeniorityLadder)
