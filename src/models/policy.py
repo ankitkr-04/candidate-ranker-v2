@@ -262,11 +262,34 @@ class UncertainTreatment(BaseModel):
     disqualifier_flag_cannot_determine: str
 
 
+class SubThresholdFloor(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Ordering for candidates that bottom out at score 0 (no base/bonus flag fired). They are
+    # re-spread by a deterministic substance proxy mapped strictly below the smallest positive
+    # score, so a small CPU/--no-slm sample (the reproducibility sandbox) does not collapse the
+    # unqualified tail onto the candidate_id tie-break. Omitted => disabled (the raw 0 tie-break
+    # stands). The column names live here, not in the scorer, so the engine carries no
+    # this-job feature names.
+    #
+    # The substance score sums two kinds of term:
+    #   substance: numeric feature column -> weight (the column's value times the weight)
+    #   categorical: categorical column -> {category value -> weight} (a lookup, unmatched = 0)
+    # so ML-credited experience, raw experience, and title relevance can compose into one
+    # ordering key. Both default empty; supply either or both.
+    substance: dict[str, float] = Field(default_factory=dict)
+    categorical: dict[str, dict[str, float]] = Field(default_factory=dict)
+    # Floored band ceiling = smallest positive score * headroom; < 1 keeps every floored
+    # candidate strictly below every positive scorer, so any pool's ranked head is unchanged.
+    headroom: float = 0.9
+
+
 class Scoring(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     uncertain_treatment: UncertainTreatment
     tie_break: list[str]
+    sub_threshold_floor: Optional[SubThresholdFloor] = None
 
 
 class FlagDefs(BaseModel):

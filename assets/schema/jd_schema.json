@@ -47,6 +47,29 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Ordered sort expressions for equal-score candidates, e.g. ['career_substance desc', 'candidate_id asc']"
+        },
+        "sub_threshold_floor": {
+          "type": "object",
+          "description": "Optional. Re-spreads candidates that bottom out at score 0 by a deterministic substance proxy, mapped strictly below the smallest positive score, so a small CPU/no-SLM sample does not order the unqualified tail by candidate_id. Omitted => disabled.",
+          "properties": {
+            "substance": {
+              "type": "object",
+              "description": "numeric feature_column -> weight; contributes column_value * weight to the substance key.",
+              "additionalProperties": { "type": "number" }
+            },
+            "categorical": {
+              "type": "object",
+              "description": "categorical column -> { category_value -> weight }; a lookup adding the matched value's weight (unmatched => 0) to the substance key. Lets title relevance order the tail without a new feature.",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": { "type": "number" }
+              }
+            },
+            "headroom": {
+              "type": "number",
+              "description": "Floored band ceiling = smallest positive score * headroom (< 1 keeps floored candidates below every positive scorer). Default 0.9."
+            }
+          }
         }
       }
     },

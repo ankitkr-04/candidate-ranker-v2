@@ -258,4 +258,31 @@ def score_frame(
     score = pl.col(BASE_SCORE)
     for name in stage_columns + penalty_columns + gate_columns:
         score = score * pl.col(name)
-    return frame.with_columns(score.alias(SCORE))
+    frame = frame.with_columns(score.alias(SCORE))
+
+    # Sub-threshold soft floor ----------------------------------------------
+    # A candidate who trips none of the (largely SLM-driven) base/bonus flags lands at
+    # base_score == 0, hence score == 0. On the full pool those never reach the submitted
+    # top-N, but on a small sample -- the reproducibility sandbox runs on CPU with no SLM, so
+    # even ML-credited profiles can sit at 0 -- they fill the output, and a flat 0 collapses
+    # the order onto the candidate_id tie-break (an HR or civil profile can then outrank a
+    # software/ML one purely by id). The floor re-spreads that zero block by the policy's
+    # deterministic substance proxy, mapped strictly below the frame's smallest positive
+    # score. Positive scorers are left exactly as-is, so any pool's ranked head -- including
+    # the 100k submitted top 100 -- is unchanged; only the ordering *within* the score==0 tail
+    # differs. The substance columns/weights and the headroom live in the policy, not here.
+    floor = tuning.scoring.sub_threshold_floor
+    if floor is not None and (floor.substance or floor.categorical):
+        terms = [pl.col(col).fill_null(0.0) * weight for col, weight in floor.substance.items()]
+        for col, mapping in floor.categorical.items():
+            terms.append(pl.col(col).replace_strict(mapping, default=0.0, return_dtype=pl.Float64))
+        substance = pl.sum_horizontal(terms)
+        min_positive = frame.filter(pl.col(SCORE) > 0).select(pl.col(SCORE).min()).item()
+        sub_max = frame.filter(pl.col(SCORE) <= 0).select(substance.max()).item()
+        if sub_max and sub_max > 0:
+            ceiling = min_positive * floor.headroom if min_positive is not None else 1.0
+            floored = substance / sub_max * ceiling
+            frame = frame.with_columns(
+                pl.when(pl.col(SCORE) > 0).then(pl.col(SCORE)).otherwise(floored).alias(SCORE)
+            )
+    return frame

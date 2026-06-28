@@ -8,7 +8,25 @@
     },
     "tie_break": [
       "candidate_id asc"
-    ]
+    ],
+    "sub_threshold_floor": {
+      "substance": {
+        "applied_ml_years": 1.0,
+        "years_of_experience": 0.01
+      },
+      "categorical": {
+        "current_title_bucket": {
+          "ideal": 0.6,
+          "strong_positive": 0.5,
+          "moderate_positive": 0.4,
+          "junior_ml": 0.3,
+          "neutral_read_description": 0.2,
+          "heavy_penalty": 0.05,
+          "hard_sink": 0.0
+        }
+      },
+      "headroom": 0.9
+    }
   },
   "features": {
     "flags": {
