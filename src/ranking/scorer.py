@@ -197,6 +197,26 @@ def score_frame(
         [pl.col(flag).fill_null(False) for flag in _flag_columns(tuning)]
     )
 
+    # Python rescue: a career history almost never says "I used Python", so the SLM's
+    # strong_python_prod under-fires for engineers whose blurbs are abstract (it only fires
+    # when the prose happens to mention code). But owning a production retrieval / ranking /
+    # eval system, or shipping end-to-end at scale, is itself proof of Python -- you cannot
+    # ship that work without it, and that ownership is the strongest, least-fabricable signal
+    # in this pool (a verified Python skill-assessment exists for only ~0.3% of candidates,
+    # and self-reported skills are noise). So OR the SLM flag with the production-ownership
+    # signals before it feeds the base tier. The raw SLM answer is preserved as
+    # strong_python_slm for provenance in debug.jsonl / audit_trace.jsonl.
+    frame = frame.with_columns(pl.col("strong_python_prod").alias("strong_python_slm"))
+    frame = frame.with_columns(
+        (
+            pl.col("strong_python_prod")
+            | pl.col("owns_retrieval_prod")
+            | pl.col("owns_ranking_prod")
+            | pl.col("owns_eval_framework")
+            | pl.col("shipped_endtoend_at_scale")
+        ).alias("strong_python_prod")
+    )
+
     frame = frame.with_columns(_career_substance_expr(tuning).alias(CAREER_SUBSTANCE))
 
     booster = tuning.skill_booster
