@@ -40,7 +40,7 @@ reproduce_command: "python -m src.ranking.main --features artifacts/100k/feature
 # The ranking step that produces the CSV: CPU-only, no GPU, no network. Reads the committed
 # precomputed features.parquet (allowed per spec §10.3) and writes the top-100 in <1s.
 # features.parquet is regenerated offline (GPU) by:
-#   python -m src.precompute.main --pool 100k          # SLM pre-compute (not part of the 5-min budget)
+#   python -m src.precompute.main --pool 100k --slm-ceiling 0.25   # SLM pre-compute, ~3.6k candidates (not part of the 5-min budget)
 
 # ============================================================================
 # Compute environment   (ranking box; the GPU pre-compute is declared separately below)
@@ -54,7 +54,7 @@ compute:
   uses_gpu_for_inference: false                 # ranking is a vectorized Polars pass — no model, no GPU
   has_network_during_ranking: false             # ranking reads a local parquet only
   pre_computation_required: true                # SLM job-fit flags are precomputed OFFLINE on a GPU
-  pre_computation_time_minutes: 210             # ~28k candidates (ceiling 0.02), ~15 min / 2k batch on one L4
+  pre_computation_time_minutes: 30              # ~3.6k candidates (ceiling 0.25), ~15 min / 2k batch on one L4
 
 # ============================================================================
 # AI tools declaration   (transparency only — declared use is NOT penalized)
@@ -75,8 +75,9 @@ ai_usage_summary: |
 methodology_summary: |
   Two-stage ranker. Offline pre-compute derives deterministic features and runs a self-hosted
   Qwen3-4B SLM over each candidate's career_history, emitting grounded boolean job-fit flags plus a
-  verbatim evidence quote, written to features.parquet. A deterministic ceiling pre-filter sends only
-  viable candidates (~28k of 100k) to the SLM; the rest stay ranked at 0. The online ranking step is a
+  per-role evidence digest, written to features.parquet. A deterministic ceiling pre-filter sends only
+  candidates whose best-possible score can reach the shortlist (~3.6k of 100k at ceiling 0.25) to the
+  SLM; the rest are provably unable to place and stay ranked at 0. The online ranking step is a
   single vectorized Polars pass — CPU-only, no network, 0.37s / 196MB peak for the full 100k pool on an
   i3/8GB box: career-substance from the SLM flags, then multiplicative modifiers (company tier, locality,
   recency, experience bands) and a job-agnostic integrity layer of ten compounding penalties (date
