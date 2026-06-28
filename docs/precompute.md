@@ -134,25 +134,37 @@ The model is **Qwen/Qwen3-4B-Instruct-2507** (~8 GB in half precision), loaded o
 - Guided JSON decoding (via `StructuredOutputsParams`) enforces the output schema, so no
   post-processing is needed for the boolean flags
 
-**Input:** only `career_history` (per the policy's `input_scope`). The system prompt
-(instructions + full question set) is identical for every candidate so vLLM's prefix cache
-computes it once and reuses across all ~22k inferences. Only the short user message
+**Input:** only `career_history` (per the policy's `input_scope`), with identical role
+descriptions de-duplicated (this pool recombines a small set of template paragraphs across
+companies; printing one verbatim under every role would let repetition anchor the model). The
+system prompt (instructions + full question set) is identical for every candidate so vLLM's
+prefix cache computes it once and reuses it across every inference. Only the short user message
 (career history) differs per candidate.
+
+The system prompt is **balanced for both error directions**: it weighs *every* role equally
+(a capability counts as `true` when *any single* role explicitly describes it, even an old or
+non-current one — never letting the current/primary role decide unrelated questions), while
+keeping the anti-false-positive guard (don't credit a capability no role explicitly describes;
+never infer a domain from generic words like "match"/"relevance"/"ranking"/"recommendation").
+The earlier single-global-evidence design anchored all answers on one sentence and produced
+false negatives for capabilities living in a secondary role; the current prompt instead asks
+for **one short verbatim phrase per role** before the booleans, so every role is on the record.
 
 **Output schema (fixed order, guided decoding):**
 
 ```json
 {
   "subject_of_primary_work": "string (max 160 chars)",
-  "evidence": "string (max 200 chars — one verbatim quote from career history)",
+  "evidence": "string (max 700 chars — one short verbatim phrase PER role, joined by ' | ')",
   "owns_retrieval_prod": true,
   "owns_ranking_prod": false,
-  ...  (one boolean per question in ask[])
+  ...  (one boolean per question in ask[]; 30 booleans total)
 }
 ```
 
 `subject_of_primary_work` describes what the candidate mainly worked on.
-`evidence` is the specific sentence or phrase the model used to answer.
+`evidence` is the per-role phrase digest the model grounded its answers in (display-only —
+the scorer never reads it).
 
 If guided decoding fails (should not happen), the runner falls back to `_empty_fact`:
 all booleans false, empty strings for text fields.

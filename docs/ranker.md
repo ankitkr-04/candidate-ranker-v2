@@ -36,7 +36,8 @@ the environment overrides the interpreter.
 | `--tuning PATH` | `artifacts/tuning/tuning.json` | override the tuning artifact |
 | `--out PATH` | `results/<pool>/submission.csv` | output CSV path |
 | `--top N` | `100` | number of candidates to emit |
-| `--debug` | off | also write the full scored ranking (all candidates, all stage columns) to `artifacts/<pool>/debug.jsonl` |
+| `--debug` | off | also write the full scored ranking to `results/<pool>/debug.jsonl` **and** a readable `results/<pool>/audit_trace.jsonl` |
+| `--audit-top N` | `--top` | rows to include in `audit_trace.jsonl` (widen to explain candidates further down the ranking) |
 
 Exactly one of `--pool`, `--candidates`, or `--features` is required.
 
@@ -48,9 +49,10 @@ Exactly one of `--pool`, `--candidates`, or `--features` is required.
 flowchart TD
     A[load tuning.json\n+ integrity.json] --> B[read features.parquet\npl.read_parquet]
     B --> C[fill_null False\non all SLM flags]
-    C --> D[career_substance_expr\nΣ additive flags × weight\n× internal gates\nclamped 0..1]
+    C --> C2[python rescue\nstrong_python_prod |= production-ownership flags\nraw kept as strong_python_slm]
+    C2 --> D[career_substance_expr\nbase tier Σ flags×weight × gates clamped\n+ bonus tier riding ABOVE the clamp]
     D --> E[skill_booster_expr\nper_skill × qualifying_skills\nif career_substance >= 0.6]
-    E --> F[base_score\nclamp career_substance + skill_booster 0..1]
+    E --> F[base_score\nclip career_substance + skill_booster\nlower bound 0 only — NOT capped at 1]
     F --> G[JD multiplier stages\n13 stages → mult__<id> columns]
     G --> H[integrity penalty stages\n10 stages → mult__<id> columns]
     H --> I[hard gates\n4 gates → gate__<id> columns]
@@ -67,19 +69,37 @@ flowchart TD
 
 ### career_substance
 
-The only SLM-dependent part. Computed as:
+The only SLM-dependent part. Two tiers — a clamped must-have **base** plus a nice-to-have
+**bonus** that rides above the clamp:
 
 ```
-career_substance = clamp(
-    sum_horizontal(when(flag).then(weight) for flag, weight in additive.items())
+base_tier  = clamp(
+    sum_horizontal(when(flag [& requires[flag]]).then(weight) for flag, weight in additive.items())
     × when(gate.when).then(gate.multiplier).otherwise(1.0)   ← for each internal gate
   , low, high)
+
+bonus_tier = sum_horizontal(nice-to-have flag weights) × clip(base_tier / knee, 0, 1)
+
+career_substance = base_tier + bonus_tier        ← NOT re-clamped; can exceed 1.0 (max ≈1.13)
 ```
+
+The bonus is **not** re-capped: the base axis saturates at "meets the must-haves", and two
+must-have-complete engineers must still be separated by how many JD differentiators each
+brings. The final score is a ranking key, not a [0,1] probability.
 
 SLM boolean flags that are null (no SLM fact available) are treated as `False` before this
 computation — the policy's `uncertain_treatment`:
 - **positive flag** (ownership): undetermined → no credit
 - **disqualifier flag**: undetermined → does not fire
+
+**Python rescue.** A career-history blurb almost never says "I used Python", so the SLM's
+`strong_python_prod` under-fires for engineers described abstractly. Before the base tier is
+computed, the scorer OR's it with the production-ownership signals
+(`owns_retrieval_prod | owns_ranking_prod | owns_eval_framework | shipped_endtoend_at_scale`):
+owning a production retrieval/ranking/eval system *is* proof of Python, and it is the
+least-fabricable signal in the pool (a verified Python skill-assessment exists for only ~0.3%
+of candidates; self-reported skills are noise). The raw SLM answer is preserved as
+`strong_python_slm` for the audit trail.
 
 ### skill_booster
 
@@ -176,14 +196,33 @@ text stays causal and the same quote never recurs across near-duplicate profiles
 
 ## Debug output
 
-With `--debug`, the ranker writes `artifacts/<pool>/debug.jsonl`: one JSON object per
-candidate (the **full** scored frame, not just top-N), including every stage breakdown
-column (`mult__*`, `gate__*`), all flag/metric values, and the final score. Use this to
-understand why a candidate ranked where they did.
+With `--debug`, the ranker writes two files to `results/<pool>/`:
+
+**`debug.jsonl`** — one JSON object per candidate (the **full** scored frame, not just
+top-N), including every stage breakdown column (`mult__*`, `gate__*`), all flag/metric
+values, `career_substance` / `skill_booster` / `base_score`, and the final score. It is the
+raw dump: it shows *what* the values are, not *how* they multiply into the score.
 
 ```bash
 # rank a specific candidate
-grep '"CAND_0006567"' artifacts/100k/debug.jsonl | python -m json.tool | less
+grep '"CAND_0006567"' results/100k/debug.jsonl | python -m json.tool | less
+```
+
+**`audit_trace.jsonl`** — a human-readable derivation for the top `--audit-top` rows
+(default `--top`), built by `src/ranking/audit.py`. It re-renders the same numbers as an
+ordered chain — base build-up, then each stage that actually *moved* the score, with its
+`factor`, `effect` (`+/−%`), running product, and a one-line `formula` — plus a `check`
+field that recomputes the product and confirms it ties out to the stored score. It re-scores
+nothing, so it is faithful by construction. Use it to answer "*how* did this become 0.45?":
+
+```json
+{ "rank": 36, "candidate_id": "CAND_0018499", "score": 0.451669,
+  "base": {"career_substance": 1.11, "skill_booster": 0.06, "base_score": 1.17},
+  "steps": [ {"stage": "domain_mandate_bonus", "kind": "bonus", "factor": 1.05, "effect": "+5.0%", "running": ...},
+             {"stage": "skill_anachronism_penalty", "kind": "penalty", "factor": 0.33, "effect": "-67.0%", "running": 0.451669} ],
+  "neutral_stages": ["current_title_congruence", ...],
+  "formula": "(1.110 substance + 0.060 booster) = 1.1700  x 1.050 (domain_mandate_bonus) ... x 0.330 (skill_anachronism_penalty) = 0.4517",
+  "check": {"recomputed": 0.451669, "matches": true} }
 ```
 
 ---

@@ -168,18 +168,30 @@ graph LR
         H5["career_months_overrun_penalty\nconditional: 0.90"]
     end
 
-    subgraph "Soft compounding penalties"
-        P1["skill_anachronism_penalty\ndecay: 0.92^num_skill_anachronisms, floor 0.60"]
+    subgraph "Escalating / soft compounding penalties"
+        P1["skill_anachronism_penalty\nbanded curve (direction max):\n1→0.97, 2→0.82, 3→0.55, 4→0.33, 5+→0.20"]
         P2["seniority_before_graduation_penalty\nconditional: 0.85 if flag fires"]
         P3["education_overlap_penalty\ndecay: 0.98^num_education_overlaps, floor 0.92"]
         P4["skill_anomaly_penalty\ndecay: 0.985^num_skill_anomalies, floor 0.93"]
     end
 ```
 
-A fabricated profile (e.g. CAND_0006567 before the integrity layer):
-- `num_skill_anachronisms = 1` (Prompt Engineering, 94 months since 2018)
-- `senior_title_pre_graduation = True` (Senior ML Engineer started before BSc finished)
-- Result: `0.92 × 0.85 ≈ 0.782×` → score 0.97 → ~0.76 (drops out of #1)
+**Why `skill_anachronism` is a banded curve, not a decay.** A decay (`base^n`, floored) is
+*decelerating* — it can never express "rare-but-fatal". But anachronism count is bimodal in
+this pool: 1 is plausibly early-adopter noise, while 4–5 (≈14 profiles in 100k) cannot occur
+by accident — they are planted fabrication. So the curve forgives the first (×0.97) and then
+escalates steeply (2→0.82, 3→0.55, 4→0.33, 5+→0.20), sinking the fabricators without shaving
+the early adopters. `direction: "max"` makes the bands `feature <= at` (ascending), with the
+value-only default catching the worst tail — see the curve-direction note in scorer. The sister
+check `skill_anomaly` (duration > the candidate's *own* experience) is deliberately left soft
+(decay 0.985, floor 0.93): a skill predating the first paid job has an innocent explanation
+(college / side projects), whereas a skill predating the *tool's existence* does not.
+
+A fabricated profile sunk by the curve (e.g. CAND_0018499):
+- `num_skill_anachronisms = 4` (RAG 7.8y, Weaviate 7.3y, QLoRA, LangChain — each longer than
+  the tool has existed) → `skill_anachronism_penalty = ×0.33`
+- top-tier base substance (~1.17) lifted further by bonuses to ~1.46, then `×0.33` drags it to
+  ~0.45 — well out of the top, without ever being removed.
 
 A genuine senior engineer trips none of these → 1.0× (unaffected).
 

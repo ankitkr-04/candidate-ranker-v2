@@ -98,7 +98,7 @@ Later tier-checks override earlier ones, so "senior engineering manager" → 4.
 | `has_ai_native` | any career role at an `ai_native` company |
 | `has_product_company` | any career role at any company in `product_set` (expands to named category members) |
 | `majority_career_services` | >50% of total career months spent at IT-services companies |
-| `enterprise_lifer` | every career role at a `10001+`-size employer (≥2 roles) — the whole-career big-enterprise tenure the JD warns against |
+| `enterprise_lifer` | every career role at a `10001+`-size employer (≥2 roles). **Retained but no longer penalized** — the headcount penalty was removed because the JD never rejects product/big-co tenure (it only rejects consulting-*only* careers, handled by the services flags). Kept as a computed column for diagnostics. |
 
 ### Location / title flags
 
@@ -189,7 +189,7 @@ the policy at runtime — so adding a flag to the JD automatically extends the s
 
 **Purpose:** one-shot data repair for Chinese code-switching in the SLM `evidence` column.
 The SLM (Qwen3-4B) occasionally emits Chinese for an English word inside the free-text
-evidence span, typically near the 200-char truncation limit. The boolean flags are
+evidence span (now a per-role phrase digest, max 700 chars). The boolean flags are
 structurally constrained by guided decoding and are always clean; `evidence` is a free-text
 SLM column that the scorer never reads. As of the causal-reasoning rewrite the submission's
 `reasoning` text no longer quotes it either, so this repair is now cosmetic — it only matters

@@ -92,15 +92,19 @@ prefers_remote   open_to_work_flag   enterprise_lifer
 ─── integrity flags (Boolean) ────────────────────────────────────
 end_before_start   career_months_overrun   role_months_overrun
 current_role_date_conflict   senior_title_pre_graduation
-─── SLM flags (Boolean, null until SLM runs) ─────────────────────
-owns_retrieval_prod   owns_ranking_prod   owns_eval_framework
-vector_db_prod   shipped_endtoend_at_scale   retrieval_ops_depth
-ltr_experience   reranker_twostage   llm_finetuning
-realtime_ml_serving   prod_ml_ops   hrtech_or_marketplace_exp
-external_validation   manager_not_builder   research_not_applied
-primarily_adjacent   observer_not_owner   llm_api_wrapper_only
-pre_llm_ml_production   is_hobbyist_or_self_learner
-cv_dominant   speech_dominant   robotics_dominant   ...
+─── SLM flags (Boolean, null until SLM runs — 30 questions) ──────
+owns_retrieval_prod   vector_db_prod   owns_eval_framework
+strong_python_prod   retrieval_ops_depth   owns_ranking_prod
+shipped_endtoend_at_scale   ltr_experience   reranker_twostage
+relevance_judgment_pipeline   llm_finetuning   ab_testing_ml
+distributed_systems_scale   hrtech_or_marketplace_exp   external_validation
+first_person_ownership   primarily_adjacent   observer_not_owner
+manager_not_builder   cv_dominant   speech_dominant   robotics_dominant
+nlp_ir_significant   research_not_applied   ic_role
+llm_api_wrapper_only   pre_llm_ml_production   is_hobbyist_or_self_learner
+built_recruiter_or_jd_matching   scrappy_shipper
+(scorer also derives strong_python_slm = the raw SLM answer, kept for the
+ audit trail; strong_python_prod is then OR'd with production-ownership — see ranker.md)
 ─── metrics (Float64) ────────────────────────────────────────────
 years_of_experience   applied_ml_years
 median_tenure_last_3_months   current_role_duration_months
@@ -126,15 +130,15 @@ so it cannot drift from what the scorer references.
 ## Scoring formula
 
 ```
-career_substance = clamp(
-    Σ(additive SLM flags × weight)   ← the only SLM-dependent part
-    × Π(internal gates)
-  , 0, 1)
+career_substance = base_tier + bonus_tier            ← the only SLM-dependent part
+  base_tier  = clamp(Σ(must-have flags × weight) × Π(internal gates), low, high)
+  bonus_tier = Σ(nice-to-have flags × weight) × scale(base_tier / knee)
+               ↑ rides ABOVE the base clamp — NOT re-capped at 1.0
 
 skill_booster    = min(max, per_skill × num_qualifying_unevidenced_skills)
                    if career_substance >= 0.6 else 0
 
-base_score       = clamp(career_substance + skill_booster, 0, 1)
+base_score       = clip(career_substance + skill_booster, lower=0)   ← lower bound ONLY
 
 score            = base_score
                    × Π(JD multiplier stages)         ← all deterministic
@@ -142,10 +146,16 @@ score            = base_score
                    × Π(hard gates)                   ← all deterministic
 ```
 
-`career_substance` is the **only SLM-dependent part**. Its theoretical maximum is 1.0
-(all ownership flags true, all internal gates open). Because every multiplier, penalty, and
-hard gate reads only deterministic columns, the best-possible score for any candidate is an
-exact, computable upper bound — the "ceiling" used by the SLM pre-filter.
+`career_substance` is the **only SLM-dependent part**. The base tier saturates at the JD's
+must-have completeness, but the nice-to-have **bonus tier rides above that clamp** so two
+must-have-complete engineers are still separated by how many JD differentiators each brings —
+the final score is a ranking key, not a normalized [0,1] probability. With this policy the
+base tier maxes at its additive sum (~0.85), the bonus adds ~0.28, and `skill_booster` adds
+up to 0.06, so **career_substance tops out ≈1.13 and base_score ≈1.19** — and the positive
+(>1.0) multiplier stages push the final score above 1.0 for the strongest profiles. Because
+every multiplier, penalty, and hard gate reads only deterministic columns, the best-possible
+score for any candidate is still an exact, computable upper bound — the "ceiling" used by the
+SLM pre-filter (`ceiling_expr` computes that ~1.19 base headroom from the policy, not 1.0).
 
 ---
 
@@ -198,23 +208,29 @@ Because every multiplier and gate is deterministic, the best possible score for 
 is exactly:
 
 ```
-ceiling = 1.0 (best-case base_score)
+ceiling = best-case base_score (≈1.19, computed from the policy:
+            base-tier additive sum + full bonus-tier sum + max skill_booster)
           × Π(each multiplier at its actual deterministic feature values)
           × Π(integrity penalties at actual values)
           [gates assumed 1.0 — an overestimate, so safe]
 ```
 
-This is computed by `scorer.py:ceiling_expr`. Precompute runs the SLM only for candidates
-whose `ceiling >= --slm-ceiling` (default 0.02). Skipped candidates keep null SLM columns,
-score ~0, and stay ranked. The ceiling is an upper bound: a skipped candidate cannot
+This is computed by `scorer.py:ceiling_expr`. It does **not** assume `base_score = 1.0`: it
+sums the must-have base additive (capped at the base clamp), adds the **full** nice-to-have
+bonus tier (which rides above that clamp), and adds the max skill_booster — so the ~1.19
+headroom is exact, and the uncapped-base scoring change never makes the filter wrongly skip a
+strong profile. The one column it must pin is `career_substance` itself (one stage,
+`github_bonus`, gates on it): `select_for_slm` sets it to 1.0, which clears that gate's
+`>= 0.6` threshold at its max, so the pin is correct. Precompute runs the SLM only for
+candidates whose `ceiling >= --slm-ceiling` (default 0.02). Skipped candidates keep null SLM
+columns, score ~0, and stay ranked. The ceiling is an upper bound: a skipped candidate cannot
 reach the top-N even with a perfect SLM result.
 
-One nuance: `domain_mandate_bonus` is the only multiplier that can exceed 1.0 (≤ ×1.05),
-and it is gated on SLM flags that are still null at pre-filter time, so the ceiling
-evaluates it at its default (1.0) and thus *under*-counts a bonus-eligible candidate's true
-max by ≤5%. This is safe given the permissive 0.02 threshold — every bonus-eligible profile
-(`owns_retrieval/ranking` + first-person ownership in HR-tech/marketplace) clears it by a
-wide margin — so no placeable candidate is dropped.
+Several multipliers now exceed 1.0 (`domain_mandate_bonus` ×1.05, `narrow_domain_bonus`
+×1.08, `shipper_bonus` ×1.03, `github_bonus` ×1.03, `behavioral` up to ~1.05). They are gated
+on SLM/behavioural columns evaluated at their actual values here, so the ceiling counts them
+when their deterministic gate already holds and conservatively omits them otherwise — still an
+upper bound, so no placeable candidate is dropped at the permissive 0.02 threshold.
 
 ```mermaid
 flowchart LR

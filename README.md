@@ -17,7 +17,7 @@ ranking    (CPU · ≤5 min · ≤16 GB · no network)     →     submission.cs
 
 **Precompute** parses the candidate pool, normalizes noisy fields, computes every
 deterministic feature and integrity signal, and runs a small language model (Qwen3-4B) to
-get ~33 boolean judgments per candidate. Everything lands in one flat Parquet file — one
+get 30 boolean judgments per candidate. Everything lands in one flat Parquet file — one
 row per candidate.
 
 **Ranking** scans that Parquet, compiles the entire scoring policy into vectorized Polars
