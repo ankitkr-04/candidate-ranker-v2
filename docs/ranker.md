@@ -93,13 +93,17 @@ computation — the policy's `uncertain_treatment`:
 - **disqualifier flag**: undetermined → does not fire
 
 **Python rescue.** A career-history blurb almost never says "I used Python", so the SLM's
-`strong_python_prod` under-fires for engineers described abstractly. Before the base tier is
-computed, the scorer OR's it with the production-ownership signals
+`strong_python_prod` under-fires for engineers described abstractly. The rescue is expressed
+in the policy's `derived_flags` block — a list of `{ target, when, preserve_as }` overrides
+applied after the columns land but before scoring. Here it sets `strong_python_prod` to itself
+OR the production-ownership signals
 (`owns_retrieval_prod | owns_ranking_prod | owns_eval_framework | shipped_endtoend_at_scale`):
 owning a production retrieval/ranking/eval system *is* proof of Python, and it is the
 least-fabricable signal in the pool (a verified Python skill-assessment exists for only ~0.3%
-of candidates; self-reported skills are noise). The raw SLM answer is preserved as
-`strong_python_slm` for the audit trail.
+of candidates; self-reported skills are noise). `when` is an ordinary predicate, so it may
+reference the target's own value; `preserve_as` keeps the raw SLM answer as `strong_python_slm`
+for the audit trail. The scorer iterates `derived_flags` generically, so each job's overrides
+live in its policy (`assets/job/jd_parsed.json → derived_flags`).
 
 ### skill_booster
 
@@ -112,7 +116,9 @@ else 0
 ```
 
 `num_qualifying_unevidenced_skills` is a precomputed metric (skills listed but not yet
-evidenced by SLM confirmation). Skills that the SLM confirms do not double-count.
+evidenced by SLM confirmation). Skills that the SLM confirms do not double-count. The column
+the bonus multiplies is named by the policy (`skill_booster.count_feature`, defaulting to
+`num_qualifying_unevidenced_skills`), so the scorer carries no this-job column name.
 
 ### Multiplier stage types
 

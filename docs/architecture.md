@@ -103,8 +103,8 @@ manager_not_builder   cv_dominant   speech_dominant   robotics_dominant
 nlp_ir_significant   research_not_applied   ic_role
 llm_api_wrapper_only   pre_llm_ml_production   is_hobbyist_or_self_learner
 built_recruiter_or_jd_matching   scrappy_shipper
-(scorer also derives strong_python_slm = the raw SLM answer, kept for the
- audit trail; strong_python_prod is then OR'd with production-ownership — see ranker.md)
+(the policy's `derived_flags` block then recomputes strong_python_prod = itself OR'd with
+ production-ownership, stashing the raw SLM answer as strong_python_slm — see ranker.md)
 ─── metrics (Float64) ────────────────────────────────────────────
 years_of_experience   applied_ml_years
 median_tenure_last_3_months   current_role_duration_months
@@ -130,6 +130,9 @@ so it cannot drift from what the scorer references.
 ## Scoring formula
 
 ```
+derived_flags    = recompute selected flags from a predicate over the columns   ← pre-scoring
+                   (e.g. strong_python_prod |= production-ownership; from the policy block)
+
 career_substance = base_tier + bonus_tier            ← the only SLM-dependent part
   base_tier  = clamp(Σ(must-have flags × weight) × Π(internal gates), low, high)
   bonus_tier = Σ(nice-to-have flags × weight) × scale(base_tier / knee)
@@ -226,7 +229,7 @@ candidates whose `ceiling >= --slm-ceiling` (default 0.02). Skipped candidates k
 columns, score ~0, and stay ranked. The ceiling is an upper bound: a skipped candidate cannot
 reach the top-N even with a perfect SLM result.
 
-Several multipliers now exceed 1.0 (`domain_mandate_bonus` ×1.05, `narrow_domain_bonus`
+Several multipliers exceed 1.0 (`domain_mandate_bonus` ×1.05, `narrow_domain_bonus`
 ×1.08, `shipper_bonus` ×1.03, `github_bonus` ×1.03, `behavioral` up to ~1.05). They are gated
 on SLM/behavioural columns evaluated at their actual values here, so the ceiling counts them
 when their deterministic gate already holds and conservatively omits them otherwise — still an

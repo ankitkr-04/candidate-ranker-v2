@@ -21,9 +21,9 @@ regardless of what role they apply to**. Mixing them into the JD would:
 
 ### Why not hardcode thresholds in code?
 
-Previous versions hardcoded `overrun_slack_months` and `seniority_min_rank` directly in
-`metrics.py`. These belong in config for the same reason multiplier weights do: you want to
-tune them by editing a JSON file and re-ranking in seconds, not by grep-editing Python.
+Thresholds like `overrun_slack_months` and `seniority_min_rank` belong in config for the same
+reason multiplier weights do: you tune them by editing a JSON file and re-ranking in seconds,
+not by grep-editing Python.
 
 ### Why multiplicative compounding instead of a single gate?
 
@@ -79,6 +79,15 @@ thresholds):
     "overrun_slack_months": 18.0,
     "seniority_min_rank": 3,
     "experience_span_buffer_years": 5.0
+  },
+  "seniority_ladder": {
+    "default": 2,
+    "tiers": [
+      { "keywords": ["intern"], "rank": 0 },
+      { "keywords": ["junior", "jr", "associate", "trainee"], "rank": 1 },
+      { "keywords": ["senior", "sr", "lead", "principal", "staff"], "rank": 3 },
+      { "keywords": ["manager", "head", "director", "vp", "chief", "cto"], "rank": 4 }
+    ]
   },
   "features": {
     "flags": ["end_before_start", "career_months_overrun", "role_months_overrun",

@@ -90,6 +90,14 @@ ladder assigns a coarse rank 0–4 by space-padded keyword matching:
 
 Later tier-checks override earlier ones, so "senior engineering manager" → 4.
 
+The ladder comes from the job-agnostic integrity asset
+(`assets/integrity/penalties.json → seniority_ladder`, a `{ default, tiers[] }` object) and is
+the single source of truth shared by both consumers. `_seniority_rank(title, ladder)` takes it
+as an argument: `FeatureDeriver` receives it from the integrity policy (and falls back to the
+built-in default when precompute runs without one), and `IntegrityDeriver` reads it from its own
+policy. Seniority is a generic notion, so the ladder lives with the job-agnostic layer rather
+than in the JD policy.
+
 ### Company flags
 
 | flag | meaning |
@@ -98,7 +106,7 @@ Later tier-checks override earlier ones, so "senior engineering manager" → 4.
 | `has_ai_native` | any career role at an `ai_native` company |
 | `has_product_company` | any career role at any company in `product_set` (expands to named category members) |
 | `majority_career_services` | >50% of total career months spent at IT-services companies |
-| `enterprise_lifer` | every career role at a `10001+`-size employer (≥2 roles). **Retained but no longer penalized** — the headcount penalty was removed because the JD never rejects product/big-co tenure (it only rejects consulting-*only* careers, handled by the services flags). Kept as a computed column for diagnostics. |
+| `enterprise_lifer` | every career role at a `10001+`-size employer (≥2 roles). A diagnostic-only column that scoring does not read: the JD rejects consulting-*only* careers (handled by the services flags) but not product/big-co tenure, so headcount alone carries no penalty. |
 
 ### Location / title flags
 
@@ -189,11 +197,11 @@ the policy at runtime — so adding a flag to the JD automatically extends the s
 
 **Purpose:** one-shot data repair for Chinese code-switching in the SLM `evidence` column.
 The SLM (Qwen3-4B) occasionally emits Chinese for an English word inside the free-text
-evidence span (now a per-role phrase digest, max 700 chars). The boolean flags are
+evidence span (a per-role phrase digest, max 700 chars). The boolean flags are
 structurally constrained by guided decoding and are always clean; `evidence` is a free-text
-SLM column that the scorer never reads. As of the causal-reasoning rewrite the submission's
-`reasoning` text no longer quotes it either, so this repair is now cosmetic — it only matters
-if you surface the parquet `evidence` column elsewhere (e.g. ad-hoc review).
+SLM column that the scorer never reads. The submission's `reasoning` text does not quote it
+either, so this repair is cosmetic — it only matters if you surface the parquet `evidence`
+column elsewhere (e.g. ad-hoc review).
 
 **Strategy:** translate frequent, cleanly-mappable phrases using the `_RESTORE` map (longest
 match first, space-padded to avoid word fusion), then cut at the first remaining CJK/Hangul
