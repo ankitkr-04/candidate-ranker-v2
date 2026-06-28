@@ -51,9 +51,10 @@ def build_schema(questions: SlmQuestions) -> dict:
     """JSON schema for guided decoding; property order fixes the emission order."""
     properties: dict[str, dict] = {
         _SUBJECT: {"type": "string", "maxLength": 160},
-        # Roomy enough to hold a complete sentence so the quote is not cut mid-word
-        # in the reasoning display (reasoning.py also trims defensively).
-        _EVIDENCE: {"type": "string", "maxLength": 320},
+        # Holds one short verbatim phrase per role (separated by ' | '), so each role -- not
+        # just the first/primary one -- is on the record before the booleans are decided. Sized
+        # for ~6 roles of phrase-length spans; the field stays a single Utf8 column downstream.
+        _EVIDENCE: {"type": "string", "maxLength": 700},
     }
     for question in questions.ask:
         if question.id in (_SUBJECT, _EVIDENCE):
@@ -80,15 +81,23 @@ def build_messages(candidate: Candidate, questions: SlmQuestions) -> list[dict]:
     # history, no assumed facts -- so the same code screens for any role the questions describe.
     system = (
         "You screen job candidates against a fixed set of screening questions. Judge strictly "
-        "from the candidate's career history. Do not assume facts that are not stated; when the "
-        "history does not support a claim, answer false. Judge each question by what the history "
-        "explicitly describes -- never infer a domain or capability from generic words like "
-        "'match', 'relevance', 'ranking', or 'recommendation'; the work must actually be in the "
-        "domain the question asks about.\n\n"
+        "from the candidate's career history, weighing every role equally -- a role being old, "
+        "brief, or not the candidate's current or main job does NOT lower its evidence. Decide "
+        "each question on its own against ALL roles: when at least one role explicitly describes "
+        "the capability the question asks about, answer true, even if it is not the candidate's "
+        "primary or most recent work; never let the current or most prominent role decide "
+        "unrelated questions. Conversely, do not credit a capability that no role explicitly "
+        "describes, and never infer a domain from generic words like 'match', 'relevance', "
+        "'ranking', or 'recommendation' -- the work must actually be in the domain the question "
+        "asks about. In short: true if any single role explicitly supports the claim, false if "
+        "none does.\n\n"
         f"First, {_SUBJECT}: {subject_q}\n"
-        "Then give an evidence span: quote one complete sentence from the history that you "
-        "relied on. Quote it verbatim and do not stop mid-sentence.\n"
-        "Then answer each question true or false:\n" + "\n".join(boolean_questions)
+        "Then build the evidence: for EACH role in the history, quote verbatim the one short "
+        "phrase that best shows what the candidate actually built or owned there, so every role "
+        "is on the record before you answer -- not just the first. Separate roles with ' | ' "
+        "and do not stop mid-phrase.\n"
+        "Then answer each question true or false, checking the claim against every role's "
+        "evidence above:\n" + "\n".join(boolean_questions)
     )
     user = f"Career history:\n{career_history_text(candidate)}"
     return [
