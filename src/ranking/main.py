@@ -14,11 +14,13 @@ Examples:
 import argparse
 from pathlib import Path
 
+import orjson
 import polars as pl
 
 from src.models.integrity import IntegrityPolicy, load_integrity
 from src.models.tuning import Tuning
 from src.paths import TUNING_ARTIFACT_DIR, pool_artifact_dir, pool_result_dir
+from src.ranking.audit import build_audit_trace
 from src.ranking.reasoning import compose_reasoning
 from src.ranking.scorer import SCORE, score_frame
 
@@ -77,7 +79,8 @@ def main() -> None:
     parser.add_argument("--tuning", help="Path to tuning.json (default artifacts/tuning/tuning.json).")
     parser.add_argument("--out", help="Output CSV path (default results/<pool>/submission.csv).")
     parser.add_argument("--top", type=int, default=100, help="Number of candidates to output.")
-    parser.add_argument("--debug", action="store_true", help="Also write the full scored ranking to debug.jsonl.")
+    parser.add_argument("--debug", action="store_true", help="Also write the full scored ranking to debug.jsonl and a readable audit_trace.jsonl.")
+    parser.add_argument("--audit-top", type=int, help="Rows to include in audit_trace.jsonl (default: --top).")
     args = parser.parse_args()
 
     tuning = load_tuning(Path(args.tuning) if args.tuning else None)
@@ -103,6 +106,19 @@ def main() -> None:
         debug_path.parent.mkdir(parents=True, exist_ok=True)
         ranked.write_ndjson(debug_path)
         print(f"Wrote full scored ranking ({ranked.height} rows) to {debug_path}")
+
+        # Human-readable derivation for the inspected head: how base x stages -> score.
+        # Scoped to the top window (default the submitted set) to stay readable; widen
+        # with --audit-top to explain candidates further down the ranking.
+        audit_n = min(args.audit_top or args.top, ranked.height)
+        trace = build_audit_trace(
+            list(ranked.head(audit_n).iter_rows(named=True)), tuning, integrity
+        )
+        audit_path = pool_result_dir(pool) / "audit_trace.jsonl"
+        with audit_path.open("wb") as handle:
+            for record in trace:
+                handle.write(orjson.dumps(record) + b"\n")
+        print(f"Wrote scoring audit trace ({audit_n} rows) to {audit_path}")
 
 
 if __name__ == "__main__":
