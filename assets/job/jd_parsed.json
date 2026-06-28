@@ -227,6 +227,7 @@
     },
     "per_skill": 0.02,
     "max": 0.06,
+    "count_feature": "num_qualifying_unevidenced_skills",
     "credit_rule": "count num_qualifying_unevidenced_skills, bonus = min(max, per_skill * count). disqualified skills give zero (not a penalty).",
     "qualifying": [
       "learning to rank",
@@ -778,6 +779,21 @@
         ]
       },
       "multiplier": 0.3
+    }
+  ],
+  "derived_flags": [
+    {
+      "target": "strong_python_prod",
+      "preserve_as": "strong_python_slm",
+      "when": {
+        "any": [
+          { "flag": "strong_python_prod" },
+          { "flag": "owns_retrieval_prod" },
+          { "flag": "owns_ranking_prod" },
+          { "flag": "owns_eval_framework" },
+          { "flag": "shipped_endtoend_at_scale" }
+        ]
+      }
     }
   ],
   "lookups": {

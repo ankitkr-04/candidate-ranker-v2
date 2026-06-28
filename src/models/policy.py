@@ -174,6 +174,9 @@ class SkillBooster(BaseModel):
     when: "Predicate"
     per_skill: float
     max: float
+    # Feature column holding the count the per_skill bonus multiplies. Named in the policy
+    # (not hardcoded in the scorer) so the engine carries no this-job column names.
+    count_feature: str = "num_qualifying_unevidenced_skills"
     credit_rule: str = ""
     qualifying: list[str] = Field(default_factory=list)
     disqualified: list[str] = Field(default_factory=list)
@@ -185,6 +188,21 @@ class HardGate(BaseModel):
     id: Optional[str] = None
     when: "Predicate"
     multiplier: float
+
+
+class DerivedFlag(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Recompute one feature flag from a predicate over the other (already-landed) columns,
+    # applied after the deterministic + SLM columns are present but before scoring. This is
+    # how the policy expresses logical rescues/overrides in *data* instead of engine code --
+    # e.g. "credit strong_python_prod when the candidate owns a production retrieval/ranking/
+    # eval system, since shipping that is itself proof of Python". `when` reuses the predicate
+    # language and may reference `target` itself (it sees the pre-override value). `preserve_as`,
+    # if set, keeps that pre-override value under a separate column for provenance/debug.
+    target: str
+    when: "Predicate"
+    preserve_as: Optional[str] = None
 
 
 # Lookups --------------------------------------------------------------------
@@ -316,11 +334,13 @@ class Policy(BaseModel):
     skill_booster: SkillBooster
     multipliers: list[Multiplier]
     hard_gates: list[HardGate]
+    # Optional policy-driven flag overrides applied before scoring (see DerivedFlag).
+    derived_flags: list[DerivedFlag] = Field(default_factory=list)
     lookups: Lookups
     slm_questions: SlmQuestions
 
 
 # Resolve forward references for the recursive Predicate / Multiplier types.
 for _model in (NotNode, AllNode, AnyNode, Case, CompositeProduct, Gate, SkillBooster,
-               HardGate):
+               HardGate, DerivedFlag):
     _model.model_rebuild()

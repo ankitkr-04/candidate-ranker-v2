@@ -141,6 +141,10 @@
           "type": "number",
           "description": "Cap on total booster added"
         },
+        "count_feature": {
+          "type": "string",
+          "description": "Feature column holding the count the per_skill bonus multiplies (default num_qualifying_unevidenced_skills)."
+        },
         "credit_rule": { "type": "string" },
         "qualifying": {
           "type": "array",
@@ -170,6 +174,20 @@
           "id": { "type": "string" },
           "when": { "$ref": "#/definitions/Predicate" },
           "multiplier": { "type": "number" }
+        }
+      }
+    },
+    "derived_flags": {
+      "type": "array",
+      "description": "Optional policy-driven flag overrides applied after the deterministic + SLM columns land but before scoring. Each recomputes one feature flag from a predicate over the other columns (the predicate may reference the target's pre-override value), so logical rescues/overrides live in data, not engine code. Example: credit strong_python_prod whenever the candidate owns a production retrieval/ranking/eval system.",
+      "items": {
+        "type": "object",
+        "required": ["target", "when"],
+        "additionalProperties": false,
+        "properties": {
+          "target": { "type": "string", "description": "Flag column to overwrite with the predicate's truth value." },
+          "when": { "$ref": "#/definitions/Predicate" },
+          "preserve_as": { "type": "string", "description": "Optional column to stash the pre-override value under, for provenance/debug." }
         }
       }
     },

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from src.models.policy import (
     CareerSubstance,
+    DerivedFlag,
     Features,
     HardGate,
     Lookups,
@@ -33,6 +34,7 @@ class Tuning(BaseModel):
     skill_booster: SkillBooster
     multipliers: list[Multiplier]
     hard_gates: list[HardGate]
+    derived_flags: list[DerivedFlag] = []
     lookups: Lookups
 
     @classmethod
@@ -46,5 +48,6 @@ class Tuning(BaseModel):
             skill_booster=policy.skill_booster,
             multipliers=policy.multipliers,
             hard_gates=policy.hard_gates,
+            derived_flags=policy.derived_flags,
             lookups=policy.lookups,
         )

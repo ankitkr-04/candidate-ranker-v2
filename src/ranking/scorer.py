@@ -197,32 +197,29 @@ def score_frame(
         [pl.col(flag).fill_null(False) for flag in _flag_columns(tuning)]
     )
 
-    # Python rescue: a career history almost never says "I used Python", so the SLM's
-    # strong_python_prod under-fires for engineers whose blurbs are abstract (it only fires
-    # when the prose happens to mention code). But owning a production retrieval / ranking /
-    # eval system, or shipping end-to-end at scale, is itself proof of Python -- you cannot
-    # ship that work without it, and that ownership is the strongest, least-fabricable signal
-    # in this pool (a verified Python skill-assessment exists for only ~0.3% of candidates,
-    # and self-reported skills are noise). So OR the SLM flag with the production-ownership
-    # signals before it feeds the base tier. The raw SLM answer is preserved as
-    # strong_python_slm for provenance in debug.jsonl / audit_trace.jsonl.
-    frame = frame.with_columns(pl.col("strong_python_prod").alias("strong_python_slm"))
-    frame = frame.with_columns(
-        (
-            pl.col("strong_python_prod")
-            | pl.col("owns_retrieval_prod")
-            | pl.col("owns_ranking_prod")
-            | pl.col("owns_eval_framework")
-            | pl.col("shipped_endtoend_at_scale")
-        ).alias("strong_python_prod")
-    )
+    # Policy-driven flag overrides (career_substance's `derived_flags`): recompute selected
+    # flags from a predicate over the freshly-landed columns, before they feed the base tier.
+    # Expressed in the policy, not hardcoded here, so the engine stays JD-agnostic. The
+    # canonical use is the Python rescue -- a career history almost never says "I used Python",
+    # so the SLM's strong_python_prod under-fires; but owning a production retrieval/ranking/
+    # eval system (or shipping end-to-end at scale) is itself proof of Python, so the policy
+    # ORs those ownership signals in. Each override may stash its pre-override value under
+    # `preserve_as` (e.g. strong_python_slm) for provenance in debug.jsonl / audit_trace.jsonl.
+    # All expressions in one with_columns see the original frame, so `preserve_as` captures the
+    # pre-override value even when `when` references the target itself.
+    for spec in tuning.derived_flags:
+        exprs: list[pl.Expr] = []
+        if spec.preserve_as:
+            exprs.append(pl.col(spec.target).alias(spec.preserve_as))
+        exprs.append(compile_predicate(spec.when).alias(spec.target))
+        frame = frame.with_columns(exprs)
 
     frame = frame.with_columns(_career_substance_expr(tuning).alias(CAREER_SUBSTANCE))
 
     booster = tuning.skill_booster
     booster_value = pl.min_horizontal(
         pl.lit(booster.max),
-        pl.lit(booster.per_skill) * pl.col("num_qualifying_unevidenced_skills"),
+        pl.lit(booster.per_skill) * pl.col(booster.count_feature),
     )
     frame = frame.with_columns(
         pl.when(compile_predicate(booster.when)).then(booster_value).otherwise(0.0).alias(SKILL_BOOSTER)
