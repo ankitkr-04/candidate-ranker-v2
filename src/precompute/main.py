@@ -84,7 +84,8 @@ def reference_date(candidates: list[Candidate]) -> date:
 def build_feature_table(
     candidates: list[Candidate], tuning: Tuning, integrity: IntegrityPolicy | None = None
 ) -> pl.DataFrame:
-    deriver = FeatureDeriver(tuning)
+    ladder = integrity.seniority_ladder if integrity is not None else None
+    deriver = FeatureDeriver(tuning, ladder)
     integrity_deriver = IntegrityDeriver(integrity) if integrity is not None else None
     ref = reference_date(candidates)
     rows = [build_feature_row(c, deriver, ref, integrity_deriver) for c in candidates]

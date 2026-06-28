@@ -12,35 +12,35 @@ from src.features.normalize import (
     normalize_token,
 )
 from src.models.candidate import Candidate
+from src.models.integrity import SeniorityLadder
 from src.models.tuning import Tuning
 
 _INDIA = "india"
 
-# Title keywords mapped to a coarse seniority rank. Later entries override
-# earlier ones, so "engineering manager" ranks above "senior engineer".
-_SENIORITY_TIERS = [
-    ((" junior ", " jr ", " associate ", " trainee "), 1),
-    ((" senior ", " sr ", " lead ", " principal ", " staff "), 3),
-    ((" manager ", " head ", " director ", " vp ", " chief ", " cto "), 4),
-]
-_DEFAULT_SENIORITY = 2
+# Single source of truth for the seniority ladder is the job-agnostic integrity config
+# (SeniorityLadder); this module-level instance is the fallback used when no ladder is
+# supplied, and reproduces the historical hardcoded values.
+_DEFAULT_LADDER = SeniorityLadder()
 
 
-def _seniority_rank(title: str) -> int:
+def _seniority_rank(title: str, ladder: SeniorityLadder = _DEFAULT_LADDER) -> int:
+    # Tiers are matched in order with later tiers overriding earlier ones, so
+    # "engineering manager" ranks above "senior engineer".
     padded = f" {normalize_title(title)} "
-    rank = _DEFAULT_SENIORITY
-    if " intern " in padded:
-        rank = 0
-    for keywords, value in _SENIORITY_TIERS:
-        if any(k in padded for k in keywords):
-            rank = value
+    rank = ladder.default
+    for tier in ladder.tiers:
+        if any(f" {k} " in padded for k in tier.keywords):
+            rank = tier.rank
     return rank
 
 
 class FeatureDeriver:
-    def __init__(self, tuning: Tuning) -> None:
+    def __init__(self, tuning: Tuning, seniority_ladder: SeniorityLadder | None = None) -> None:
         self.tuning = tuning
         self.slm_flag_names = list(tuning.features.flags.slm)
+        # Shared seniority ladder (from the job-agnostic integrity config); falls back to the
+        # default when precompute runs without an integrity policy.
+        self._seniority_ladder = seniority_ladder or _DEFAULT_LADDER
 
         company = tuning.lookups.company
         self._it_services = {normalize_company(x) for x in company.it_services}
@@ -116,7 +116,7 @@ class FeatureDeriver:
         recent = c.career_history[:3]
         if len(recent) < 2:
             return False
-        ranks = [_seniority_rank(r.title) for r in reversed(recent)]  # oldest -> newest
+        ranks = [_seniority_rank(r.title, self._seniority_ladder) for r in reversed(recent)]  # oldest -> newest
         return all(later > earlier for earlier, later in zip(ranks, ranks[1:]))
 
     # Metrics / categoricals -------------------------------------------------

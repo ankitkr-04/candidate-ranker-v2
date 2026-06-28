@@ -25,6 +25,7 @@ class IntegrityDeriver:
         self._span_buffer = integrity.params.experience_span_buffer_years
         self._tool_eras = {normalize_token(name): year for name, year in integrity.tool_eras.items()}
         self._high_proficiency = {"expert", "advanced"}
+        self._seniority_ladder = integrity.seniority_ladder
         self._flags = list(integrity.features.flags)
         self._metrics = list(integrity.features.metrics)
 
@@ -85,7 +86,7 @@ class IntegrityDeriver:
         return any(
             r.start_date is not None
             and r.start_date.year < grad_year
-            and _seniority_rank(r.title) >= self._min_senior_rank
+            and _seniority_rank(r.title, self._seniority_ladder) >= self._min_senior_rank
             for r in candidate.career_history
         )
 

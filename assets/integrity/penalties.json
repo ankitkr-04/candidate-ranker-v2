@@ -37,6 +37,15 @@
     "seniority_min_rank": 3,
     "experience_span_buffer_years": 5.0
   },
+  "seniority_ladder": {
+    "default": 2,
+    "tiers": [
+      { "keywords": ["intern"], "rank": 0 },
+      { "keywords": ["junior", "jr", "associate", "trainee"], "rank": 1 },
+      { "keywords": ["senior", "sr", "lead", "principal", "staff"], "rank": 3 },
+      { "keywords": ["manager", "head", "director", "vp", "chief", "cto"], "rank": 4 }
+    ]
+  },
   "features": {
     "flags": [
       "end_before_start",

@@ -36,6 +36,34 @@ class IntegrityParams(BaseModel):
     experience_span_buffer_years: float = 5.0
 
 
+class SeniorityTier(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    keywords: list[str]
+    rank: int
+
+
+class SeniorityLadder(BaseModel):
+    """Title-keyword -> coarse seniority rank, used by both the JD's `titles_escalating`
+    feature and the integrity layer's `senior_title_pre_graduation` check. Seniority is a
+    job-agnostic notion, so the ladder lives here (not in the JD policy) and is the single
+    source of truth for both. Tiers are matched in order with later tiers overriding earlier
+    ones, so a title carrying both 'senior' and 'manager' resolves to the manager rank.
+    The default reproduces the historical hardcoded ladder, so the asset need not restate it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    default: int = 2
+    tiers: list[SeniorityTier] = Field(
+        default_factory=lambda: [
+            SeniorityTier(keywords=["intern"], rank=0),
+            SeniorityTier(keywords=["junior", "jr", "associate", "trainee"], rank=1),
+            SeniorityTier(keywords=["senior", "sr", "lead", "principal", "staff"], rank=3),
+            SeniorityTier(keywords=["manager", "head", "director", "vp", "chief", "cto"], rank=4),
+        ]
+    )
+
+
 class IntegrityFeatures(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -55,6 +83,8 @@ class IntegrityPolicy(BaseModel):
     # implied start year precedes this is anachronistic.
     tool_eras: dict[str, int] = Field(default_factory=dict)
     params: IntegrityParams = Field(default_factory=IntegrityParams)
+    # Job-agnostic title seniority ladder (shared by the JD feature and the integrity check).
+    seniority_ladder: SeniorityLadder = Field(default_factory=SeniorityLadder)
     features: IntegrityFeatures
     penalties: list[Multiplier] = Field(default_factory=list)
 

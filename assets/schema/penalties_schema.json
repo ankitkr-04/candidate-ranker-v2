@@ -54,6 +54,26 @@
                 }
             }
         },
+        "seniority_ladder": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Job-agnostic title-keyword -> seniority rank ladder, shared by the JD's titles_escalating feature and the integrity senior_title_pre_graduation check. Optional; omitting it uses the built-in default. Tiers match in order, later overriding earlier.",
+            "properties": {
+                "default": { "type": "integer", "description": "Rank for titles matching no tier." },
+                "tiers": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["keywords", "rank"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "keywords": { "type": "array", "items": { "type": "string" } },
+                            "rank": { "type": "integer" }
+                        }
+                    }
+                }
+            }
+        },
         "features": {
             "type": "object",
             "required": [
