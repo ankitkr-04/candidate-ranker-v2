@@ -47,19 +47,19 @@ Exactly one of `--pool`, `--candidates`, or `--features` is required.
 
 ```mermaid
 flowchart TD
-    A[load tuning.json\n+ integrity.json] --> B[read features.parquet\npl.read_parquet]
-    B --> C[fill_null False\non all SLM flags]
-    C --> C2[python rescue\nstrong_python_prod |= production-ownership flags\nraw kept as strong_python_slm]
-    C2 --> D[career_substance_expr\nbase tier Σ flags×weight × gates clamped\n+ bonus tier riding ABOVE the clamp]
-    D --> E[skill_booster_expr\nper_skill × qualifying_skills\nif career_substance >= 0.6]
-    E --> F[base_score\nclip career_substance + skill_booster\nlower bound 0 only — NOT capped at 1]
-    F --> G[JD multiplier stages\n13 stages → mult__<id> columns]
-    G --> H[integrity penalty stages\n10 stages → mult__<id> columns]
-    H --> I[hard gates\n4 gates → gate__<id> columns]
-    I --> J[score = base_score\n× Π all stage cols]
-    J --> M[sort: score desc\ncandidate_id asc]
-    M --> N[head top-N\nassign rank 1..N]
-    N --> O[compose_reasoning\nPython loop over ≤100 rows]
+    A[load tuning.json<br>+ integrity.json] --> B[read features.parquet<br>pl.read_parquet]
+    B --> C[fill_null False<br>on all SLM flags]
+    C --> C2["python rescue<br>strong_python_prod |= production-ownership flags<br>raw kept as strong_python_slm"]
+    C2 --> D[career_substance_expr<br>base tier Σ flags×weight × gates clamped<br>+ bonus tier riding ABOVE the clamp]
+    D --> E[skill_booster_expr<br>per_skill × qualifying_skills<br>if career_substance >= 0.6]
+    E --> F[base_score<br>clip career_substance + skill_booster<br>lower bound 0 only — NOT capped at 1]
+    F --> G[JD multiplier stages<br>13 stages → mult__<id> columns]
+    G --> H[integrity penalty stages<br>10 stages → mult__<id> columns]
+    H --> I[hard gates<br>4 gates → gate__<id> columns]
+    I --> J[score = base_score<br>× Π all stage cols]
+    J --> M[sort: score desc<br>candidate_id asc]
+    M --> N[head top-N<br>assign rank 1..N]
+    N --> O[compose_reasoning<br>Python loop over ≤100 rows]
     O --> P[write submission.csv]
 ```
 
