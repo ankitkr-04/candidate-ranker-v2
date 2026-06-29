@@ -94,7 +94,8 @@
     "seniority_min_rank": 3,
     "experience_span_buffer_years": 5.0,
     "anachronism_buffer_months": 3.0,
-    "anachronism_grace_years": 0.75
+    "anachronism_grace_years": 0.75,
+    "anomaly_buffer_months": 12.0
   },
   "seniority_ladder": {
     "default": 2,

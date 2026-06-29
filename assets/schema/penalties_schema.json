@@ -66,6 +66,10 @@
                 "anachronism_grace_years": {
                     "type": "number",
                     "description": "Aggregate grace in years of beyond-buffer overrun forgiven before the anachronism penalty bites; the penalty then scales with the impossible years claimed"
+                },
+                "anomaly_buffer_months": {
+                    "type": "number",
+                    "description": "Months a skill's claimed tenure may exceed the candidate's total career length before it counts as an over-claim; absorbs ordinary pre-career use (college/side-projects/hackathons/open-source) so the soft over-claim penalty registers only large, genuine over-claims"
                 }
             }
         },

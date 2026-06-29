@@ -43,6 +43,13 @@ class IntegrityParams(BaseModel):
     # is effectively free. It does not apply once two or more skills are anachronistic -- early
     # access to several tools at once is not credible -- where the full overrun is charged.
     anachronism_grace_years: float = 0.75
+    # Months a skill's claimed tenure may exceed the candidate's TOTAL career length before it
+    # counts as an over-claim. Unlike anachronism (measured against world history) this is measured
+    # against the person's own career, and a tool used a little longer than the first paid job is
+    # ordinary -- college/side-project use, hackathons, open-source while between jobs. A generous
+    # year of pre-career use is absorbed so the count registers only genuine, large over-claims;
+    # the penalty itself stays gentle (this is a noise filter, not a fabrication gate).
+    anomaly_buffer_months: float = 12.0
 
 
 class SeniorityTier(BaseModel):

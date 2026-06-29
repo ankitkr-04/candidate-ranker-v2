@@ -156,7 +156,7 @@ See [integrity.md](integrity.md) for the full design rationale. The signals it p
 | signal | what it counts |
 |---|---|
 | `num_education_overlaps` | pairs of education spans that overlap |
-| `num_skill_anomalies` | skills whose `duration_months > years_of_experience × 12` |
+| `num_skill_anomalies` | skills whose `duration_months > years_of_experience × 12 + anomaly_buffer_months` (the buffer absorbs ordinary pre-career use — college, side-projects, hackathons, open-source between jobs — so only large over-claims count) |
 | `num_proficiency_anomalies` | skills marked `expert`/`advanced` with `duration_months == 0` |
 | `num_skill_anachronisms` | skills in `tool_eras` whose implied start year precedes the tool's era by more than `anachronism_buffer_months` |
 | `skill_anachronism_years` | total beyond-buffer overrun in years across those skills (the magnitude); a lone anachronism has `anachronism_grace_years` subtracted, two or more are charged in full |

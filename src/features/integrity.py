@@ -25,6 +25,7 @@ class IntegrityDeriver:
         self._span_buffer = integrity.params.experience_span_buffer_years
         self._anachronism_buffer_years = integrity.params.anachronism_buffer_months / 12.0
         self._anachronism_grace_years = integrity.params.anachronism_grace_years
+        self._anomaly_buffer_months = integrity.params.anomaly_buffer_months
         self._tool_eras = {normalize_token(name): year for name, year in integrity.tool_eras.items()}
         self._company_founding = {
             normalize_token(name): year for name, year in integrity.company_founding.items()
@@ -110,13 +111,18 @@ class IntegrityDeriver:
         return float(overlaps)
 
     def num_skill_anomalies(self, candidate: Candidate) -> float:
-        # Skills claiming more months of use than the candidate's total experience.
-        months_experience = candidate.profile.years_of_experience * 12.0
+        # Skills claiming more months of use than the candidate's total experience, beyond a
+        # buffer. A tool used somewhat longer than the first paid job is ordinary (college,
+        # side-projects, hackathons, open-source between jobs), so the buffer absorbs that noise
+        # and the count registers only genuine, large over-claims.
+        threshold = (
+            candidate.profile.years_of_experience * 12.0 + self._anomaly_buffer_months
+        )
         return float(
             sum(
                 1
                 for s in candidate.skills
-                if s.duration_months and s.duration_months > months_experience
+                if s.duration_months and s.duration_months > threshold
             )
         )
 

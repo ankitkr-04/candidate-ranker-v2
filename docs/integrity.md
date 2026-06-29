@@ -88,7 +88,8 @@ map for the predates check) and `params` (tunable thresholds):
     "seniority_min_rank": 3,
     "experience_span_buffer_years": 5.0,
     "anachronism_buffer_months": 3.0,
-    "anachronism_grace_years": 0.75
+    "anachronism_grace_years": 0.75,
+    "anomaly_buffer_months": 12.0
   },
   "seniority_ladder": {
     "default": 2,
@@ -160,7 +161,7 @@ later completes a part-time MBA does not false-positive.
 | metric | what it counts |
 |---|---|
 | `num_education_overlaps` | pairs of education spans whose year ranges overlap |
-| `num_skill_anomalies` | skills claiming more months of use than `yoe × 12` |
+| `num_skill_anomalies` | skills claiming more months of use than `yoe × 12 + anomaly_buffer_months` (over-claim vs the candidate's *own* career, past a buffer) |
 | `num_proficiency_anomalies` | skills marked `expert`/`advanced` with `duration_months == 0` — high proficiency, zero recorded use (a hard impossibility; legitimate skills always carry a duration) |
 | `num_skill_anachronisms` | how many skills in `tool_eras` are claimed for longer than the tool has existed, beyond a grace buffer: `era_year − (reference_year − duration_months/12) > anachronism_buffer_months/12` |
 | `skill_anachronism_years` | total beyond-buffer overrun in years across those skills — the *magnitude* of impossibility. With exactly one anachronism, `anachronism_grace_years` is subtracted (a lone tool known early is plausible); with two or more the full sum is charged |
@@ -173,6 +174,14 @@ so a skill listed one or two months past its tool's birth year is noise, not a l
 counted. `anachronism_grace_years` (default 0.75) forgives a *single* lone anachronism — one tool
 plausibly known early through closed-source/pre-release exposure — but is switched off entirely
 once two or more skills are anachronistic, since early access to several tools at once is not credible.
+
+`anomaly_buffer_months` (default 12) plays the same noise-filtering role for `num_skill_anomalies`,
+but against the candidate's *own* career rather than world history. A skill used somewhat longer than
+the first paid job is ordinary — college and side-project use, hackathons, open-source written while
+between jobs — so a generous year of pre-career use is absorbed and only large, genuine over-claims
+register. The buffer cuts the share of the pool carrying *any* over-claim flag roughly in half. The
+penalty itself stays deliberately gentle (see below): unlike anachronism, an over-claim against your
+own career has innocent explanations, so this is a soft noise filter, not a fabrication gate.
 
 ### Company-founding plausibility (metric → banded curve)
 
@@ -238,9 +247,13 @@ along two independent axes, and each gets its own stage so they multiply:
 
 The two compound: a lone slip costs almost nothing (count ×1.0, and the grace usually zeroes the
 magnitude), while multiple large over-claims are hit on both axes at once. The sister check
-`skill_anomaly` (duration > the candidate's *own* experience) is deliberately left soft (decay
-0.985, floor 0.93): a skill predating the first paid job has an innocent explanation (college /
-side projects), whereas a skill predating the *tool's existence* does not.
+`skill_anomaly` (duration > the candidate's *own* experience, past `anomaly_buffer_months`) is
+deliberately left soft (decay 0.985, floor 0.93): a skill predating the first paid job has an
+innocent explanation (college / side projects / hackathons / open-source between jobs), whereas a
+skill predating the *tool's existence* does not. Across the pool the over-claim is overwhelmingly
+noise — smoothly distributed, mostly under a year, and concentrated on mature CV/speech skills
+rather than the trendy retrieval keywords the anachronism honeypot inflates — which is why it earns
+a buffer and a gentle weight, not a count×magnitude hammer.
 
 A fabricated profile sunk by the pair (e.g. CAND_0018499):
 - `num_skill_anachronisms = 4` (RAG, Weaviate, QLoRA, LangChain — each claimed longer than the
