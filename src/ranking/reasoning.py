@@ -131,6 +131,12 @@ _PENALTY_COUNT_NOUNS = {
     "proficiency_anomaly_penalty": ("num_proficiency_anomalies", "unsupported expert-skill claim"),
     "skill_anachronism_penalty": ("num_skill_anachronisms", "anachronistic skill"),
 }
+# Anachronism is scored by two compounding stages -- time magnitude and how many skills --
+# but surfaced under one noun. Gate the noun on the product so a count-only-material case
+# (several marginal overruns) is still attributed, never silently dropped.
+_PENALTY_COMPANION = {
+    "skill_anachronism_penalty": "skill_anachronism_count_penalty",
+}
 
 # A multiplier this close to 1.0 moved the rank by <2.5% -- immaterial, so never framed
 # as a cause. Penalties use the same bar so a 0.99 anachronism is suppressed.
@@ -284,6 +290,9 @@ def _all_flags(row: dict) -> list[str]:
             flags.append(phrase)
     for pen_id, (metric, noun) in _PENALTY_COUNT_NOUNS.items():
         val = row.get(f"mult__{pen_id}")
+        companion = row.get(f"mult__{_PENALTY_COMPANION.get(pen_id, '')}")
+        if isinstance(val, (int, float)) and isinstance(companion, (int, float)):
+            val *= companion
         count = int(row.get(metric) or 0)
         if isinstance(val, (int, float)) and val <= 1.0 - _MATERIAL and count > 0:
             flags.append(_plural(count, noun))
