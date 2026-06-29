@@ -27,16 +27,16 @@
         },
         "tool_eras": {
             "type": "object",
-            "description": "skill_name_lowercase -> first_year_it_existed. Used for anachronism detection.",
+            "description": "skill_name_lowercase -> when the tool first plausibly existed. Used for anachronism detection. Each value is a bare year or a 'YYYY-MM'/'YYYY-MM-DD' string (see EraPoint).",
             "additionalProperties": {
-                "type": "integer"
+                "$ref": "#/definitions/EraPoint"
             }
         },
         "company_founding": {
             "type": "object",
-            "description": "company_name -> founding_year. A role starting before its company existed is impossible; the years_predating_company metric measures the gap. Optional; companies absent from the map are never checked.",
+            "description": "company_name -> founding date. A role starting before its company existed is impossible; the years_predating_company metric measures the gap. Each value is a bare year or a 'YYYY-MM'/'YYYY-MM-DD' string (see EraPoint). Optional; companies absent from the map are never checked.",
             "additionalProperties": {
-                "type": "integer"
+                "$ref": "#/definitions/EraPoint"
             }
         },
         "params": {
@@ -70,6 +70,10 @@
                 "anomaly_buffer_months": {
                     "type": "number",
                     "description": "Months a skill's claimed tenure may exceed the candidate's total career length before it counts as an over-claim; absorbs ordinary pre-career use (college/side-projects/hackathons/open-source) so the soft over-claim penalty registers only large, genuine over-claims"
+                },
+                "company_predates_buffer_months": {
+                    "type": "number",
+                    "description": "Per-role grace in months before a role's start counts as predating its company's founding; absorbs month-rounding and legitimate stealth/pre-incorporation work, the founding-date analogue of anachronism_buffer_months"
                 }
             }
         },
@@ -126,6 +130,20 @@
         }
     },
     "definitions": {
+        "EraPoint": {
+            "description": "A point in time for a tool era or company founding. Either a bare year (integer, treated as January — the earliest the entity plausibly existed, so the check stays lenient) or a 'YYYY', 'YYYY-MM', or 'YYYY-MM-DD' string used where the real month is known. Both are normalized to a fractional year by the integrity deriver.",
+            "oneOf": [
+                {
+                    "type": "integer",
+                    "minimum": 1900,
+                    "maximum": 2100
+                },
+                {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?)?$"
+                }
+            ]
+        },
         "Predicate": {
             "description": "Boolean condition over flags and/or metrics.",
             "oneOf": [

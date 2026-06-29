@@ -50,6 +50,11 @@ class IntegrityParams(BaseModel):
     # year of pre-career use is absorbed so the count registers only genuine, large over-claims;
     # the penalty itself stays gentle (this is a noise filter, not a fabrication gate).
     anomaly_buffer_months: float = 12.0
+    # Per-role grace (in months) before a role's start counts as predating its company's founding.
+    # The founding-date analogue of anachronism_buffer_months: it absorbs month-rounding (a founding
+    # date known only to the year is treated as that January) and legitimate stealth/pre-incorporation
+    # work, so a start a month or two ahead of the public founding date is never flagged.
+    company_predates_buffer_months: float = 3.0
 
 
 class SeniorityTier(BaseModel):
@@ -95,15 +100,17 @@ class IntegrityPolicy(BaseModel):
     schema_: str | None = Field(None, alias="$schema")
     version: str
     description: str = ""
-    # Normalized skill/tool name -> earliest year the tool plausibly existed. A skill whose
-    # implied start year precedes this is anachronistic.
-    tool_eras: dict[str, int] = Field(default_factory=dict)
-    # Company name -> founding year. A role whose start year predates this could not have
-    # happened: the company did not exist yet. Only well-known companies with an unambiguous
-    # founding year are listed; companies absent from the map (incl. the pool's fictional
-    # placeholders) are never checked. The penalty bands tolerate a year of slack for
-    # stealth/incubation and escalate steeply beyond that.
-    company_founding: dict[str, int] = Field(default_factory=dict)
+    # Normalized skill/tool name -> when the tool first plausibly existed. A skill whose implied
+    # start predates this is anachronistic. Each value is a bare year (int, treated as that January)
+    # or a "YYYY"/"YYYY-MM"/"YYYY-MM-DD" string used where the real release month is known; the
+    # deriver normalizes both to a fractional year.
+    tool_eras: dict[str, int | str] = Field(default_factory=dict)
+    # Company name -> founding date. A role whose start predates this could not have happened: the
+    # company did not exist yet. Only well-known companies with an unambiguous founding date are
+    # listed; companies absent from the map (incl. the pool's fictional placeholders) are never
+    # checked. Values follow the same year-or-"YYYY-MM" form as tool_eras. The penalty bands tolerate
+    # a year of slack for stealth/incubation and escalate steeply beyond that.
+    company_founding: dict[str, int | str] = Field(default_factory=dict)
     params: IntegrityParams = Field(default_factory=IntegrityParams)
     # Job-agnostic title seniority ladder (shared by the JD feature and the integrity check).
     seniority_ladder: SeniorityLadder = Field(default_factory=SeniorityLadder)
