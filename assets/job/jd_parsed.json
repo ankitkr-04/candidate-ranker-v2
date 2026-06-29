@@ -504,13 +504,13 @@
         {
           "id": "open_to_work",
           "type": "conditional",
-          "default": 0.95,
+          "default": 1.0,
           "cases": [
             {
               "when": {
                 "flag": "open_to_work_flag"
               },
-              "value": 1.0
+              "value": 1.02
             }
           ]
         },
