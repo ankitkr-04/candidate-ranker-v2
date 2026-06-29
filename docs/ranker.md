@@ -252,10 +252,10 @@ nothing, so it is faithful by construction. Use it to answer "*how* did this bec
 { "rank": 62, "candidate_id": "CAND_0018499", "score": 0.336859,
   "base": {"career_substance": 1.11, "skill_booster": 0.06, "base_score": 1.17},
   "steps": [ {"stage": "domain_mandate_bonus", "kind": "bonus", "factor": 1.05, "effect": "+5.0%", "running": ...},
-             {"stage": "skill_anachronism_penalty", "kind": "penalty", "factor": 0.703, "effect": "-29.7%", "running": 0.962455},
+             {"stage": "skill_anachronism_magnitude_penalty", "kind": "penalty", "factor": 0.703, "effect": "-29.7%", "running": 0.962455},
              {"stage": "skill_anachronism_count_penalty", "kind": "penalty", "factor": 0.35, "effect": "-65.0%", "running": 0.336859} ],
   "neutral_stages": ["current_title_congruence", ...],
-  "formula": "(1.110 substance + 0.060 booster) = 1.1700  x 1.050 (domain_mandate_bonus) ... x 0.703 (skill_anachronism_penalty)  x 0.350 (skill_anachronism_count_penalty) = 0.3369",
+  "formula": "(1.110 substance + 0.060 booster) = 1.1700  x 1.050 (domain_mandate_bonus) ... x 0.703 (skill_anachronism_magnitude_penalty)  x 0.350 (skill_anachronism_count_penalty) = 0.3369",
   "check": {"recomputed": 0.336859, "matches": true} }
 ```
 

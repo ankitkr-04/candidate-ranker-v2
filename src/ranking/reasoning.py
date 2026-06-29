@@ -129,13 +129,13 @@ _PENALTY_COUNT_NOUNS = {
     "education_overlap_penalty": ("num_education_overlaps", "education-date overlap"),
     "skill_anomaly_penalty": ("num_skill_anomalies", "over-claimed skill"),
     "proficiency_anomaly_penalty": ("num_proficiency_anomalies", "unsupported expert-skill claim"),
-    "skill_anachronism_penalty": ("num_skill_anachronisms", "anachronistic skill"),
+    "skill_anachronism_magnitude_penalty": ("num_skill_anachronisms", "anachronistic skill"),
 }
 # Anachronism is scored by two compounding stages -- time magnitude and how many skills --
 # but surfaced under one noun. Gate the noun on the product so a count-only-material case
 # (several marginal overruns) is still attributed, never silently dropped.
 _PENALTY_COMPANION = {
-    "skill_anachronism_penalty": "skill_anachronism_count_penalty",
+    "skill_anachronism_magnitude_penalty": "skill_anachronism_count_penalty",
 }
 
 # A multiplier this close to 1.0 moved the rank by <2.5% -- immaterial, so never framed

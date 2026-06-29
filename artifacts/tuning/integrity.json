@@ -248,7 +248,7 @@
     },
     {
       "type": "decay",
-      "id": "skill_anachronism_penalty",
+      "id": "skill_anachronism_magnitude_penalty",
       "feature": "skill_anachronism_years",
       "base": 0.85,
       "floor": 0.2

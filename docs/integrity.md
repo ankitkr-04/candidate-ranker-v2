@@ -220,7 +220,7 @@ graph LR
     end
 
     subgraph "Escalating / soft compounding penalties"
-        P1a["skill_anachronism_penalty\ndecay on years: 0.85^skill_anachronism_years, floor 0.20"]
+        P1a["skill_anachronism_magnitude_penalty\ndecay on years: 0.85^skill_anachronism_years, floor 0.20"]
         P1b["skill_anachronism_count_penalty\nbanded curve (direction max):\n1→1.0, 2→0.82, 3→0.55, 4→0.35, 5+→0.20"]
         P2["company_predates_penalty\nbanded curve (direction max):\n1→0.97, 2→0.80, 3→0.50, 4→0.30, 5+→0.18"]
         P3["seniority_before_graduation_penalty\nconditional: 0.85 if flag fires"]
@@ -232,7 +232,7 @@ graph LR
 **Why `skill_anachronism` is two compounding stages — magnitude × count.** A claim is anachronistic
 along two independent axes, and each gets its own stage so they multiply:
 
-- **Magnitude** (`skill_anachronism_penalty`, decay `0.85^skill_anachronism_years`, floor 0.20):
+- **Magnitude** (`skill_anachronism_magnitude_penalty`, decay `0.85^skill_anachronism_years`, floor 0.20):
   *how impossible* the claim is. Being a year ahead of a tool's birth is rounding-adjacent; being
   ten years ahead is fabrication. A decay is the right shape here — smooth and heavier with every
   extra impossible year — and it alone catches the **lone-but-huge** case (one skill claimed a
