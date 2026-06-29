@@ -95,6 +95,8 @@
         "derive": "from normalized location + country + willing_to_relocate",
         "values": [
           "local",
+          "commutable_relocating",
+          "commutable_not_relocating",
           "tier1_relocating",
           "tier1_not_relocating",
           "other_india_relocating",

@@ -120,7 +120,7 @@ than in the JD policy.
 | output | how |
 |---|---|
 | `current_title_bucket` | lookup in `title.current_title_buckets`; unmatched → `"neutral_read_description"` |
-| `location_relocation_bucket` | local / tier1 / other_india / outside, plus `_relocating` / `_not_relocating` suffix |
+| `location_relocation_bucket` | local / commutable / tier1 / other_india / outside, plus `_relocating` / `_not_relocating` suffix |
 | `verification_state` | `"both"` / `"one"` / `"neither"` from verified_email + verified_phone |
 | `applied_ml_years` | Σ(role_months/12 × ml_credit_factor) capped at years_of_experience |
 | `num_qualifying_unevidenced_skills` | count of skills in the policy's qualifying list |
