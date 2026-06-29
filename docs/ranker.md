@@ -54,10 +54,11 @@ flowchart TD
     D --> E[skill_booster_expr<br>per_skill × qualifying_skills<br>if career_substance >= 0.6]
     E --> F[base_score<br>clip career_substance + skill_booster<br>lower bound 0 only — NOT capped at 1]
     F --> G[JD multiplier stages<br>13 stages → mult__<id> columns]
-    G --> H[integrity penalty stages<br>10 stages → mult__<id> columns]
+    G --> H[integrity penalty stages<br>11 stages → mult__<id> columns]
     H --> I[hard gates<br>4 gates → gate__<id> columns]
     I --> J[score = base_score<br>× Π all stage cols]
-    J --> M[sort: score desc<br>candidate_id asc]
+    J --> K[sub-threshold floor<br>re-spread score==0 tail<br>strictly below min positive]
+    K --> M[sort: score desc<br>candidate_id asc]
     M --> N[head top-N<br>assign rank 1..N]
     N --> O[compose_reasoning<br>Python loop over ≤100 rows]
     O --> P[write submission.csv]
@@ -147,6 +148,32 @@ stored in the parquet (no SLM needed), and applied as **strong multiplicative pe
 the integrity layer — `end_before_start` ×0.40 is the hardest. They compound with every other
 stage, so an impossible profile sinks far down the ranking without ever being removed. See
 [integrity.md](integrity.md) for the full penalty list.
+
+### Sub-threshold floor
+
+The final scoring step, after every stage has multiplied in. A candidate who fires no base or
+bonus flag lands at `base_score == 0`, so `score == 0`. On the full pool these never reach the
+submitted top-N, but a small CPU/`--no-slm` sample — the reproducibility sandbox — is mostly
+such rows, and a flat 0 collapses their order onto the `candidate_id` tie-break (an HR or civil
+profile then outranks a software/ML one purely by id). The floor re-spreads that zero block by a
+deterministic, SLM-free **substance** key:
+
+```
+substance = Σ(numeric column × weight)              ← e.g. applied_ml_years, years_of_experience
+          + Σ(categorical column → matched weight)  ← e.g. current_title_bucket relevance lookup
+
+score(score==0) = substance / max(substance) × (min_positive_score × headroom)
+```
+
+The band ceiling is `min_positive_score × headroom` with `headroom < 1`, so every floored
+candidate is mapped **strictly below the smallest positive score in the frame**. Positive
+scorers are left exactly as-is — so any pool's ranked head, including the 100k submitted top
+100, is unchanged; only the order *within* the unqualified tail differs. With this policy the
+weights order the tail by **ML-adjacency → role type → seniority** (a software role outranks a
+non-technical one regardless of tenure, a data role outranks both). The columns, weights, and
+headroom all live in `assets/job/jd_parsed.json → scoring.sub_threshold_floor`, so the scorer
+carries no this-job feature names; omitting the block disables the floor and the raw 0
+tie-break stands.
 
 ---
 

@@ -147,6 +147,10 @@ score            = base_score
                    × Π(JD multiplier stages)         ← all deterministic
                    × Π(integrity penalty stages)     ← all deterministic, no hard zero
                    × Π(hard gates)                   ← all deterministic
+
+sub-threshold    score == 0  →  substance / max(substance) × (min_positive_score × headroom)
+floor              ← deterministic, score==0 tail only; re-spreads the unqualified by a
+                     substance proxy, strictly below every positive score (from the policy block)
 ```
 
 `career_substance` is the **only SLM-dependent part**. The base tier saturates at the JD's
@@ -159,6 +163,17 @@ up to 0.06, so **career_substance tops out ≈1.13 and base_score ≈1.19** — 
 every multiplier, penalty, and hard gate reads only deterministic columns, the best-possible
 score for any candidate is still an exact, computable upper bound — the "ceiling" used by the
 SLM pre-filter (`ceiling_expr` computes that ~1.19 base headroom from the policy, not 1.0).
+
+The **sub-threshold floor** is the last step. A candidate who fires no base or bonus flag lands
+at `base_score == 0`, hence `score == 0`; on the full pool these sit far below the submitted
+top-N, but a small CPU/`--no-slm` sample (the reproducibility sandbox) is mostly such rows, and
+a flat 0 collapses their order onto the `candidate_id` tie-break. The floor re-spreads that
+zero block by a deterministic, SLM-free substance proxy — ML-credited experience, raw
+experience, and title-bucket relevance, all named with their weights in
+`scoring.sub_threshold_floor` — mapped into a band strictly below the smallest positive score
+(`min_positive × headroom`, `headroom < 1`). Positive scorers are never touched, so any pool's
+ranked head — including the 100k submitted top 100 — is unchanged; only the order *within* the
+unqualified tail differs. Omitting the policy block disables it.
 
 ---
 
