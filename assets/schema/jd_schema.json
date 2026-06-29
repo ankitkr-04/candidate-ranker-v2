@@ -266,6 +266,19 @@
               "titles": { "type": "array", "items": { "type": "string" } }
             }
           }
+        },
+        "skill_assessment": {
+          "type": "object",
+          "description": "Verified Redrob skill-assessment reward rule. Maps JD-relevant assessment skills to a priority_assessment_signal metric a multiplier then rewards; CV/speech/generic-ML assessments are omitted so they earn nothing.",
+          "additionalProperties": false,
+          "properties": {
+            "min_score": { "type": "number", "minimum": 0, "maximum": 100, "description": "Assessment score a skill must exceed to contribute (scores at or below earn nothing)." },
+            "priority_weight": { "type": "number", "description": "Weight for an 'absolutely need' assessment (retrieval, vector DB, eval/ranking, NLP, Python)." },
+            "secondary_weight": { "type": "number", "description": "Weight for a 'nice to have' assessment (LLM fine-tuning / LLM tooling)." },
+            "cap": { "type": "number", "description": "Upper bound on the per-candidate summed signal." },
+            "priority": { "type": "array", "items": { "type": "string" }, "description": "Normalized (lowercase) JD must-have assessment skill names." },
+            "secondary": { "type": "array", "items": { "type": "string" }, "description": "Normalized (lowercase) JD nice-to-have assessment skill names." }
+          }
         }
       }
     },

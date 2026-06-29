@@ -37,10 +37,6 @@ def build_feature_row(
             "prefers_remote": signals.preferred_work_mode == "remote",
             "open_to_work_flag": signals.open_to_work_flag,
             "enterprise_lifer": deriver.enterprise_lifer(candidate),
-            # Presence (not value) of skill assessments: the candidate took the effort to
-            # sit Redrob skill tests -- a platform-engagement signal the JD values. The
-            # scores themselves are self-selected and uncomparable, so only presence is used.
-            "has_skill_assessment": bool(signals.skill_assessment_scores),
         }
     )
 
@@ -66,6 +62,7 @@ def build_feature_row(
             "notice_period_days": float(signals.notice_period_days),
             "github_activity_score": signals.github_activity_score,
             "num_qualifying_unevidenced_skills": deriver.num_qualifying_unevidenced_skills(candidate),
+            "priority_assessment_signal": deriver.priority_assessment_signal(candidate),
         }
     )
 

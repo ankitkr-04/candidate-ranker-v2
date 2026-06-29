@@ -245,12 +245,32 @@ class TitleLookups(BaseModel):
     career_ml_credit: dict[str, CareerMlCreditTier]
 
 
+class AssessmentLookups(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Verified Redrob skill-assessment rewards. Unlike the self-reported skills list (a keyword
+    # trap the JD warns about), these scores come from platform-administered tests, so they are
+    # credible evidence. Only skills that matter to *this* role earn anything: `priority` are the
+    # JD's "absolutely need" areas (retrieval, vector DB / hybrid search, eval/ranking, NLP,
+    # Python), `secondary` are the "nice to have" areas (LLM fine-tuning, LLM tooling). Everything
+    # else -- CV/speech/robotics and generic ML -- is absent here and earns nothing. Each passing
+    # assessment contributes weight * (score - min_score)/(100 - min_score); the per-candidate sum
+    # (capped at `cap`) is the `priority_assessment_signal` metric a multiplier then rewards.
+    min_score: float = 60.0
+    priority_weight: float = 1.0
+    secondary_weight: float = 0.4
+    cap: float = 2.5
+    priority: list[str] = Field(default_factory=list)
+    secondary: list[str] = Field(default_factory=list)
+
+
 class Lookups(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     company: CompanyLookups
     location: LocationLookups
     title: TitleLookups
+    skill_assessment: Optional[AssessmentLookups] = None
 
 
 # Top-level policy sections --------------------------------------------------

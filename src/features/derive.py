@@ -75,6 +75,18 @@ class FeatureDeriver:
 
         self._qualifying_skills = {normalize_token(s) for s in tuning.skill_booster.qualifying}
 
+        # Verified skill-assessment reward config (None => no assessment bonus for this job).
+        assess = tuning.lookups.skill_assessment
+        self._assess_min = assess.min_score if assess else 0.0
+        self._assess_cap = assess.cap if assess else 0.0
+        self._assess_weight: dict[str, float] = {}
+        if assess:
+            for name in assess.priority:
+                self._assess_weight[normalize_token(name)] = assess.priority_weight
+            for name in assess.secondary:
+                # priority wins if a name appears in both lists.
+                self._assess_weight.setdefault(normalize_token(name), assess.secondary_weight)
+
     # Company-based flags ----------------------------------------------------
 
     def current_is_services(self, c: Candidate) -> bool:
@@ -134,6 +146,23 @@ class FeatureDeriver:
         # the candidate lists.
         listed = {normalize_token(s.name) for s in c.skills}
         return float(len(listed & self._qualifying_skills))
+
+    def priority_assessment_signal(self, c: Candidate) -> float:
+        # Verified-competence signal from Redrob skill assessments. Only JD-relevant skills
+        # (priority/secondary in lookups.skill_assessment) count, and only above min_score; each
+        # contributes weight * (score - min_score) / (100 - min_score), so a higher verified score
+        # weighs more. The sum across a candidate's assessments rewards verified breadth+depth and
+        # is capped. CV/speech/generic-ML assessments are not in the map, so they add nothing.
+        if not self._assess_weight:
+            return 0.0
+        span = 100.0 - self._assess_min
+        signal = 0.0
+        for name, score in c.redrob_signals.skill_assessment_scores.items():
+            weight = self._assess_weight.get(normalize_token(name))
+            if weight is None or score <= self._assess_min:
+                continue
+            signal += weight * (score - self._assess_min) / span
+        return min(self._assess_cap, signal)
 
     def current_title_bucket(self, c: Candidate) -> str:
         # Unmatched titles fall to the neutral bucket, which the multiplier maps to

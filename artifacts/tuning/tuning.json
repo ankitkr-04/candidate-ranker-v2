@@ -71,8 +71,7 @@
         "is_local": "normalized location in lookups.location.local_cities",
         "prefers_remote": "redrob_signals.preferred_work_mode == 'remote'",
         "open_to_work_flag": "redrob_signals.open_to_work_flag",
-        "enterprise_lifer": "every career role at a 10001+ employer (>=2 roles). COMPUTED BUT NO LONGER SCORED: the JD never penalizes big/product-company tenure -- it only rejects consulting-only careers (handled by company_context + lifelong_services gate) and rewards scrappy shippers (shipper_bonus). Headcount 10001+ caught product-company veterans (Uber/Microsoft/Amazon), which is the JD's ideal candidate, not a risk. Retained like prefers_remote: harmless, unused.",
-        "has_skill_assessment": "redrob_signals.skill_assessment_scores is non-empty; presence (not value) is a platform-engagement signal"
+        "enterprise_lifer": "every career role at a 10001+ employer (>=2 roles). COMPUTED BUT NO LONGER SCORED: the JD never penalizes big/product-company tenure -- it only rejects consulting-only careers (handled by company_context + lifelong_services gate) and rewards scrappy shippers (shipper_bonus). Headcount 10001+ caught product-company veterans (Uber/Microsoft/Amazon), which is the JD's ideal candidate, not a risk. Retained like prefers_remote: harmless, unused."
       }
     },
     "metrics": {
@@ -88,7 +87,8 @@
       "notice_period_days": "redrob_signals.notice_period_days",
       "github_activity_score": "redrob_signals.github_activity_score",
       "career_substance": "computed by the career_substance block (available to later stages)",
-      "num_qualifying_unevidenced_skills": "count of skill_booster.qualifying skills whose competence flag is not already true"
+      "num_qualifying_unevidenced_skills": "count of skill_booster.qualifying skills whose competence flag is not already true",
+      "priority_assessment_signal": "verified-competence signal from redrob_signals.skill_assessment_scores: sum over lookups.skill_assessment priority/secondary skills scoring above min_score of weight*(score-min_score)/(100-min_score), capped at cap"
     },
     "categoricals": {
       "location_relocation_bucket": {
@@ -627,20 +627,6 @@
               "value": 0.97
             }
           ]
-        },
-        {
-          "type": "conditional",
-          "id": "assessment_engagement",
-          "default": 1.0,
-          "cases": [
-            {
-              "when": {
-                "flag": "has_skill_assessment",
-                "negate": false
-              },
-              "value": 1.03
-            }
-          ]
         }
       ]
     },
@@ -794,6 +780,34 @@
             "negate": false
           },
           "value": 1.03
+        }
+      ]
+    },
+    {
+      "type": "curve",
+      "id": "verified_assessment_bonus",
+      "feature": "priority_assessment_signal",
+      "direction": "min",
+      "bands": [
+        {
+          "at": 1.5,
+          "value": 1.07
+        },
+        {
+          "at": 1.0,
+          "value": 1.06
+        },
+        {
+          "at": 0.5,
+          "value": 1.04
+        },
+        {
+          "at": 0.25,
+          "value": 1.02
+        },
+        {
+          "at": 0.0,
+          "value": 1.0
         }
       ]
     }
@@ -1150,6 +1164,42 @@
           ]
         }
       }
+    },
+    "skill_assessment": {
+      "min_score": 60.0,
+      "priority_weight": 1.0,
+      "secondary_weight": 0.4,
+      "cap": 2.5,
+      "priority": [
+        "rag",
+        "embeddings",
+        "sentence transformers",
+        "semantic search",
+        "vector search",
+        "information retrieval",
+        "bm25",
+        "pinecone",
+        "weaviate",
+        "qdrant",
+        "milvus",
+        "pgvector",
+        "faiss",
+        "opensearch",
+        "elasticsearch",
+        "haystack",
+        "learning to rank",
+        "recommendation systems",
+        "nlp",
+        "python"
+      ],
+      "secondary": [
+        "lora",
+        "qlora",
+        "peft",
+        "fine-tuning llms",
+        "llms",
+        "hugging face transformers"
+      ]
     }
   }
 }
