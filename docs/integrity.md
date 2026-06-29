@@ -86,7 +86,9 @@ map for the predates check) and `params` (tunable thresholds):
   "params": {
     "overrun_slack_months": 18.0,
     "seniority_min_rank": 3,
-    "experience_span_buffer_years": 5.0
+    "experience_span_buffer_years": 5.0,
+    "anachronism_buffer_months": 3.0,
+    "anachronism_grace_years": 0.75
   },
   "seniority_ladder": {
     "default": 2,
@@ -102,7 +104,7 @@ map for the predates check) and `params` (tunable thresholds):
               "current_role_date_conflict", "experience_exceeds_career_span",
               "senior_title_pre_graduation"],
     "metrics": ["num_education_overlaps", "num_skill_anomalies", "num_proficiency_anomalies",
-                "num_skill_anachronisms", "years_predating_company"]
+                "num_skill_anachronisms", "skill_anachronism_years", "years_predating_company"]
   },
   "penalties": [ ... ]
 }
@@ -160,10 +162,17 @@ later completes a part-time MBA does not false-positive.
 | `num_education_overlaps` | pairs of education spans whose year ranges overlap |
 | `num_skill_anomalies` | skills claiming more months of use than `yoe × 12` |
 | `num_proficiency_anomalies` | skills marked `expert`/`advanced` with `duration_months == 0` — high proficiency, zero recorded use (a hard impossibility; legitimate skills always carry a duration) |
-| `num_skill_anachronisms` | skills in `tool_eras` whose implied first-use year is before the tool existed: `reference_year − duration_months/12 < era_year` |
+| `num_skill_anachronisms` | how many skills in `tool_eras` are claimed for longer than the tool has existed, beyond a grace buffer: `era_year − (reference_year − duration_months/12) > anachronism_buffer_months/12` |
+| `skill_anachronism_years` | total beyond-buffer overrun in years across those skills — the *magnitude* of impossibility. With exactly one anachronism, `anachronism_grace_years` is subtracted (a lone tool known early is plausible); with two or more the full sum is charged |
 
 `tool_eras` only covers skills explicitly listed in the map; unrecognized skills are
 ignored. Adding a new tool = one line in `penalties.json`.
+
+`anachronism_buffer_months` (default 3) is a per-skill tolerance: `duration_months` is rounded,
+so a skill listed one or two months past its tool's birth year is noise, not a lie, and is not
+counted. `anachronism_grace_years` (default 0.75) forgives a *single* lone anachronism — one tool
+plausibly known early through closed-source/pre-release exposure — but is switched off entirely
+once two or more skills are anachronistic, since early access to several tools at once is not credible.
 
 ### Company-founding plausibility (metric → banded curve)
 
@@ -202,7 +211,8 @@ graph LR
     end
 
     subgraph "Escalating / soft compounding penalties"
-        P1["skill_anachronism_penalty\nbanded curve (direction max):\n1→0.97, 2→0.82, 3→0.55, 4→0.33, 5+→0.20"]
+        P1a["skill_anachronism_penalty\ndecay on years: 0.85^skill_anachronism_years, floor 0.20"]
+        P1b["skill_anachronism_count_penalty\nbanded curve (direction max):\n1→1.0, 2→0.82, 3→0.55, 4→0.35, 5+→0.20"]
         P2["company_predates_penalty\nbanded curve (direction max):\n1→0.97, 2→0.80, 3→0.50, 4→0.30, 5+→0.18"]
         P3["seniority_before_graduation_penalty\nconditional: 0.85 if flag fires"]
         P4["education_overlap_penalty\ndecay: 0.98^num_education_overlaps, floor 0.92"]
@@ -210,22 +220,33 @@ graph LR
     end
 ```
 
-**Why `skill_anachronism` is a banded curve, not a decay.** A decay (`base^n`, floored) is
-*decelerating* — it can never express "rare-but-fatal". But anachronism count is bimodal in
-this pool: 1 is plausibly early-adopter noise, while 4–5 (≈14 profiles in 100k) cannot occur
-by accident — they are planted fabrication. So the curve forgives the first (×0.97) and then
-escalates steeply (2→0.82, 3→0.55, 4→0.33, 5+→0.20), sinking the fabricators without shaving
-the early adopters. `direction: "max"` makes the bands `feature <= at` (ascending), with the
-value-only default catching the worst tail — see the curve-direction note in scorer. The sister
-check `skill_anomaly` (duration > the candidate's *own* experience) is deliberately left soft
-(decay 0.985, floor 0.93): a skill predating the first paid job has an innocent explanation
-(college / side projects), whereas a skill predating the *tool's existence* does not.
+**Why `skill_anachronism` is two compounding stages — magnitude × count.** A claim is anachronistic
+along two independent axes, and each gets its own stage so they multiply:
 
-A fabricated profile sunk by the curve (e.g. CAND_0018499):
-- `num_skill_anachronisms = 4` (RAG 7.8y, Weaviate 7.3y, QLoRA, LangChain — each longer than
-  the tool has existed) → `skill_anachronism_penalty = ×0.33`
-- top-tier base substance (~1.17) lifted further by bonuses to ~1.46, then `×0.33` drags it to
-  ~0.45 — well out of the top, without ever being removed.
+- **Magnitude** (`skill_anachronism_penalty`, decay `0.85^skill_anachronism_years`, floor 0.20):
+  *how impossible* the claim is. Being a year ahead of a tool's birth is rounding-adjacent; being
+  ten years ahead is fabrication. A decay is the right shape here — smooth and heavier with every
+  extra impossible year — and it alone catches the **lone-but-huge** case (one skill claimed a
+  decade early) that a count metric, treating it as "just one", would wave through.
+- **Count** (`skill_anachronism_count_penalty`, banded curve, `1→1.0, 2→0.82, 3→0.55, 4→0.35,
+  5+→0.20`): *how many* tools are over-claimed. A single anachronism is plausibly early-adopter
+  noise and is left free on this axis (×1.0); but a consistent pattern across two, three, four
+  tools cannot occur by accident — random rounding scatters both directions, systematic inflation
+  across multiple tools does not — so it escalates steeply. `direction: "max"` makes the bands
+  `feature <= at` (ascending), with the value-only default catching the worst tail — see the
+  curve-direction note in scorer.
+
+The two compound: a lone slip costs almost nothing (count ×1.0, and the grace usually zeroes the
+magnitude), while multiple large over-claims are hit on both axes at once. The sister check
+`skill_anomaly` (duration > the candidate's *own* experience) is deliberately left soft (decay
+0.985, floor 0.93): a skill predating the first paid job has an innocent explanation (college /
+side projects), whereas a skill predating the *tool's existence* does not.
+
+A fabricated profile sunk by the pair (e.g. CAND_0018499):
+- `num_skill_anachronisms = 4` (RAG, Weaviate, QLoRA, LangChain — each claimed longer than the
+  tool has existed), `skill_anachronism_years ≈ 2.2` → magnitude `×0.70`, count `×0.35`, together `×0.25`
+- top-tier base substance (~1.17) lifted further by bonuses, then dragged by `×0.25` to well out
+  of the top — a strong-looking profile held below genuine average candidates, without ever being removed.
 
 A genuine senior engineer trips none of these → 1.0× (unaffected).
 

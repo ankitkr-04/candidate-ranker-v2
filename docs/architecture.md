@@ -113,6 +113,7 @@ saved_by_recruiters_30d   applications_submitted_30d
 notice_period_days   github_activity_score
 num_qualifying_unevidenced_skills
 num_education_overlaps   num_skill_anomalies   num_proficiency_anomalies   num_skill_anachronisms
+skill_anachronism_years   years_predating_company
 ─── categoricals (String) ────────────────────────────────────────
 current_title_bucket   location_relocation_bucket   verification_state
 ─── display fields (String / Boolean) ────────────────────────────
