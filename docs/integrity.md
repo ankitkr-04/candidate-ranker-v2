@@ -59,7 +59,7 @@ the same `python -m src.jd_parser.parse` command that regenerates `tuning.json`.
 ## Source format
 
 Reuses the same `Multiplier` / `Predicate` schema as the JD, so no new format or validator
-is needed. Adds `tool_eras` (era map for anachronism checks), `company_founding` (founding-year
+is needed. Adds `tool_eras` (era map for anachronism checks), `company_founding` (founding-date
 map for the predates check) and `params` (tunable thresholds):
 
 ```json
@@ -68,11 +68,11 @@ map for the predates check) and `params` (tunable thresholds):
   "description": "Job-agnostic plausibility penalties",
   "tool_eras": {
     "prompt engineering": 2020,
-    "llm fine-tuning": 2019,
+    "llm fine-tuning": 2021,
     "rag": 2020,
-    "langchain": 2022,
+    "langchain": "2022-10",
     "vector database": 2019,
-    "chatgpt": 2022
+    "chatgpt": "2022-11"
     ...
   },
   "company_founding": {
@@ -80,6 +80,7 @@ map for the predates check) and `params` (tunable thresholds):
     "Krutrim": 2023,
     "CRED": 2018,
     "Razorpay": 2014,
+    "Google": "1998-09",
     "Infosys": 1981
     ...
   },
@@ -89,7 +90,8 @@ map for the predates check) and `params` (tunable thresholds):
     "experience_span_buffer_years": 5.0,
     "anachronism_buffer_months": 3.0,
     "anachronism_grace_years": 0.75,
-    "anomaly_buffer_months": 12.0
+    "anomaly_buffer_months": 12.0,
+    "company_predates_buffer_months": 3.0
   },
   "seniority_ladder": {
     "default": 2,
@@ -110,6 +112,14 @@ map for the predates check) and `params` (tunable thresholds):
   "penalties": [ ... ]
 }
 ```
+
+Each `tool_eras` and `company_founding` value is an **era point**: a bare year or a
+`"YYYY-MM"` / `"YYYY-MM-DD"` string. A bare year is read as that January — the earliest the
+tool or company plausibly existed, which keeps the check lenient when only the year is known —
+while a stated month (e.g. `chatgpt: "2022-11"`, `Google: "1998-09"`) pins the real boundary.
+The deriver normalizes both forms to a fractional year, and the candidate's own start month is
+carried through too, so the arithmetic is month-accurate on both sides rather than rounded to
+the calendar year.
 
 ---
 
@@ -163,15 +173,17 @@ later completes a part-time MBA does not false-positive.
 | `num_education_overlaps` | pairs of education spans whose year ranges overlap |
 | `num_skill_anomalies` | skills claiming more months of use than `yoe × 12 + anomaly_buffer_months` (over-claim vs the candidate's *own* career, past a buffer) |
 | `num_proficiency_anomalies` | skills marked `expert`/`advanced` with `duration_months == 0` — high proficiency, zero recorded use (a hard impossibility; legitimate skills always carry a duration) |
-| `num_skill_anachronisms` | how many skills in `tool_eras` are claimed for longer than the tool has existed, beyond a grace buffer: `era_year − (reference_year − duration_months/12) > anachronism_buffer_months/12` |
+| `num_skill_anachronisms` | how many skills in `tool_eras` are claimed for longer than the tool has existed, beyond a grace buffer: `era − (reference − duration_months/12) > anachronism_buffer_months/12`, where `era` and `reference` are fractional years (month precision) |
 | `skill_anachronism_years` | total beyond-buffer overrun in years across those skills — the *magnitude* of impossibility. With exactly one anachronism, `anachronism_grace_years` is subtracted (a lone tool known early is plausible); with two or more the full sum is charged |
 
 `tool_eras` only covers skills explicitly listed in the map; unrecognized skills are
 ignored. Adding a new tool = one line in `penalties.json`.
 
 `anachronism_buffer_months` (default 3) is a per-skill tolerance: `duration_months` is rounded,
-so a skill listed one or two months past its tool's birth year is noise, not a lie, and is not
-counted. `anachronism_grace_years` (default 0.75) forgives a *single* lone anachronism — one tool
+so a skill listed one or two months past its tool's era is noise, not a lie, and is not
+counted. Because `reference` and the era both carry their real month, this buffer now measures
+a genuine month-level gap rather than soaking up the half-year that a January-truncated
+`reference` used to add to every skill. `anachronism_grace_years` (default 0.75) forgives a *single* lone anachronism — one tool
 plausibly known early through closed-source/pre-release exposure — but is switched off entirely
 once two or more skills are anachronistic, since early access to several tools at once is not credible.
 
@@ -187,16 +199,20 @@ own career has innocent explanations, so this is a soft noise filter, not a fabr
 
 | metric | what it measures |
 |---|---|
-| `years_predating_company` | largest gap, in years, by which a role's start year precedes its company's founding year (`company_founding` map); 0 when no role predates its company |
+| `years_predating_company` | largest gap, in years (net of `company_predates_buffer_months`), by which a role's start predates its company's founding (`company_founding` map); 0 when no role predates its company |
 
 This is the one signal grounded in an **external** fact rather than internal arithmetic. A role's
 own dates can be perfectly self-consistent yet still impossible — the company did not exist when
 the candidate claims to have worked there, so no date-consistency check can see it. `company_founding`
-is the company analogue of `tool_eras`: a map of well-known companies to founding years in
-`penalties.json`. Only listed companies are checked, so the pool's fictional placeholder companies
-(which have no real founding year) are never flagged. The reading stays conservative — a curated map
-of unambiguous founding years, the candidate's own role start year as the only other input — so the
-false-positive surface is a single well-known integer per company.
+is the company analogue of `tool_eras`: a map of well-known companies to founding dates in
+`penalties.json`, each a bare year or a `"YYYY-MM"` string (see the era-point note above). The
+role's **actual start month** is compared against the founding date's fractional year, and
+`company_predates_buffer_months` (default 3, the founding-date analogue of `anachronism_buffer_months`)
+absorbs a start a month or two ahead of the public founding date — month-rounding or legitimate
+stealth/pre-incorporation work — so a near-boundary start is no longer rounded up to a full year.
+Only listed companies are checked, so the pool's fictional placeholder companies (which have no
+real founding date) are never flagged. The reading stays conservative — a curated map of
+unambiguous founding dates, the candidate's own role start as the only other input.
 
 ---
 
@@ -255,21 +271,27 @@ noise — smoothly distributed, mostly under a year, and concentrated on mature 
 rather than the trendy retrieval keywords the anachronism honeypot inflates — which is why it earns
 a buffer and a gentle weight, not a count×magnitude hammer.
 
-A fabricated profile sunk by the pair (e.g. CAND_0018499):
-- `num_skill_anachronisms = 4` (RAG, Weaviate, QLoRA, LangChain — each claimed longer than the
-  tool has existed), `skill_anachronism_years ≈ 2.2` → magnitude `×0.70`, count `×0.35`, together `×0.25`
-- top-tier base substance (~1.17) lifted further by bonuses, then dragged by `×0.25` to well out
-  of the top — a strong-looking profile held below genuine average candidates, without ever being removed.
+A fabricated profile dragged by the pair (e.g. CAND_0018499):
+- `num_skill_anachronisms = 3` (RAG, QLoRA, LangChain — each claimed longer than the tool has
+  existed), `skill_anachronism_years ≈ 2.2` → magnitude `×0.70`, count `×0.55`, together `×0.39`.
+  Its Weaviate claim (≈88 months, implying a start right at Weaviate's 2019 era) sits *within*
+  the buffer at month precision and is correctly **not** counted — the boundary case the buffer
+  exists for, rather than a fourth anachronism.
+- top-tier base substance (~1.17) lifted by bonuses to ~1.43, then dragged by the pair to ~0.56 —
+  a strong-looking profile held well below where its inflated substance alone would place it,
+  without ever being removed.
 
 A genuine senior engineer trips none of these → 1.0× (unaffected).
 
-**`company_predates` shares the curve shape for the same reason.** A one-year gap is forgiven
-(×0.97): a candidate can legitimately have joined during a stealth period before the public
-founding date, and a curated founding year can itself be off by a year. Beyond that the gap is
-not explainable — a role starting three or five years before the company existed is a planted
-impossibility — so the curve escalates steeply (2→0.80, 3→0.50, 4→0.30, 5+→0.18), sinking it out
-of contention while leaving the boundary cases essentially untouched. This is the only check that
-catches a profile whose internal dates are flawless but whose history contradicts the outside world.
+**`company_predates` shares the curve shape for the same reason.** A start a few months ahead of
+the founding date is already absorbed by `company_predates_buffer_months` before the gap is even
+measured, and the first full year is then forgiven (×0.97): a candidate can legitimately have
+joined during a stealth period before the public founding date, and a curated founding date can
+itself be off. Beyond that the gap is not explainable — a role starting three or five years before
+the company existed is a planted impossibility — so the curve escalates steeply (2→0.80, 3→0.50,
+4→0.30, 5+→0.18), sinking it out of contention while leaving the boundary cases essentially
+untouched. This is the only check that catches a profile whose internal dates are flawless but
+whose history contradicts the outside world.
 
 ---
 
@@ -318,13 +340,27 @@ python -m src.jd_parser.parse        # re-validate and write artifact (seconds)
 ./ranker.sh --pool 100k              # re-rank (seconds, no GPU, no precompute)
 ```
 
-For an even quicker experiment, edit `artifacts/tuning/integrity.json` directly and re-run
-the ranker — the parse step is skipped. Commit the source change to `penalties.json`
-afterward; the artifact is gitignored.
+This parse-then-rank loop is enough only for the **penalty-stage** knobs (`penalties[*].base`,
+`floor`, `bands`, conditional `value`s): those map an already-computed metric to a multiplier at
+rank time, read straight from the compiled artifact. The **deriver inputs** — `tool_eras`,
+`company_founding`, and the `params.*` thresholds (slack, buffers, grace, min-rank) — instead
+feed `IntegrityDeriver` during precompute and are frozen into `features.parquet`, so changing
+them needs a deterministic precompute re-run between the two steps:
+
+```bash
+python -m src.jd_parser.parse                       # re-validate and write artifact
+python -m src.precompute.main --pool 100k --no-slm  # recompute integrity metrics (CPU; keeps cached SLM facts)
+./ranker.sh --pool 100k                             # re-rank
+```
+
+For an even quicker penalty-stage experiment, edit `artifacts/tuning/integrity.json` directly and
+re-run the ranker — the parse step is skipped. Always commit the source change to `penalties.json`
+(and the regenerated `features.parquet`, if precompute ran) afterward.
 
 Tunable values:
 - `params.overrun_slack_months` — widen to be more lenient on legitimate overlaps
 - `params.seniority_min_rank` — lower to 2 to catch mid-level titles before graduation
 - `params.experience_span_buffer_years` — lower to flag smaller YoE-vs-career overshoots (5.0 isolates only the seeded impossible-YoE cluster; lower it at the cost of catching candidates who merely omitted early jobs)
-- `tool_eras` — add any skill that didn't exist before a certain year
+- `params.anachronism_buffer_months` / `params.company_predates_buffer_months` — per-skill / per-role month grace before an era or founding-date overrun counts; widen to tolerate more rounding and stealth/pre-release exposure
+- `tool_eras` / `company_founding` — add any skill or company with the year it first existed; give a `"YYYY-MM"` value instead of a bare year wherever the real release/founding month is known (a bare year is read as that January)
 - `penalties[*].base` / `penalties[*].floor` — adjust individual penalty strength

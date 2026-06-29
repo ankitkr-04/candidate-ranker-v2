@@ -246,17 +246,17 @@ grep '"CAND_0006567"' results/100k/debug.jsonl | python -m json.tool | less
 ordered chain — base build-up, then each stage that actually *moved* the score, with its
 `factor`, `effect` (`+/−%`), running product, and a one-line `formula` — plus a `check`
 field that recomputes the product and confirms it ties out to the stored score. It re-scores
-nothing, so it is faithful by construction. Use it to answer "*how* did this become 0.34?":
+nothing, so it is faithful by construction. Use it to answer "*how* did this become 0.56?":
 
 ```json
-{ "rank": 62, "candidate_id": "CAND_0018499", "score": 0.336859,
+{ "rank": 23, "candidate_id": "CAND_0018499", "score": 0.560178,
   "base": {"career_substance": 1.11, "skill_booster": 0.06, "base_score": 1.17},
   "steps": [ {"stage": "domain_mandate_bonus", "kind": "bonus", "factor": 1.05, "effect": "+5.0%", "running": ...},
-             {"stage": "skill_anachronism_magnitude_penalty", "kind": "penalty", "factor": 0.703, "effect": "-29.7%", "running": 0.962455},
-             {"stage": "skill_anachronism_count_penalty", "kind": "penalty", "factor": 0.35, "effect": "-65.0%", "running": 0.336859} ],
+             {"stage": "skill_anachronism_magnitude_penalty", "kind": "penalty", "factor": 0.703, "effect": "-29.7%", "running": 1.018505},
+             {"stage": "skill_anachronism_count_penalty", "kind": "penalty", "factor": 0.55, "effect": "-45.0%", "running": 0.560178} ],
   "neutral_stages": ["current_title_congruence", ...],
-  "formula": "(1.110 substance + 0.060 booster) = 1.1700  x 1.050 (domain_mandate_bonus) ... x 0.703 (skill_anachronism_magnitude_penalty)  x 0.350 (skill_anachronism_count_penalty) = 0.3369",
-  "check": {"recomputed": 0.336859, "matches": true} }
+  "formula": "(1.110 substance + 0.060 booster) = 1.1700  x 1.050 (domain_mandate_bonus) ... x 0.703 (skill_anachronism_magnitude_penalty)  x 0.550 (skill_anachronism_count_penalty) = 0.5602",
+  "check": {"recomputed": 0.560178, "matches": true} }
 ```
 
 ---

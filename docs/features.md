@@ -158,23 +158,32 @@ See [integrity.md](integrity.md) for the full design rationale. The signals it p
 | `num_education_overlaps` | pairs of education spans that overlap |
 | `num_skill_anomalies` | skills whose `duration_months > years_of_experience × 12 + anomaly_buffer_months` (the buffer absorbs ordinary pre-career use — college, side-projects, hackathons, open-source between jobs — so only large over-claims count) |
 | `num_proficiency_anomalies` | skills marked `expert`/`advanced` with `duration_months == 0` |
-| `num_skill_anachronisms` | skills in `tool_eras` whose implied start year precedes the tool's era by more than `anachronism_buffer_months` |
+| `num_skill_anachronisms` | skills in `tool_eras` whose implied start precedes the tool's era by more than `anachronism_buffer_months` |
 | `skill_anachronism_years` | total beyond-buffer overrun in years across those skills (the magnitude); a lone anachronism has `anachronism_grace_years` subtracted, two or more are charged in full |
 
-`implied_start_year = reference_year − duration_months / 12`
+`implied_start = reference − duration_months / 12`, where both `reference` and each tool era
+are **fractional years** (month precision). A `tool_eras` value is a bare year — read as that
+January, the earliest the tool plausibly existed — or a `"YYYY-MM"` string where the real
+release month is known (e.g. `chatgpt: "2022-11"`), which tightens the boundary. Carrying the
+month on both sides removes the systematic ~half-year inflation that truncating `reference` to
+January used to add to every overrun.
 
 ### External-grounding signal (metric)
 
 | signal | what it measures |
 |---|---|
-| `years_predating_company` | largest gap, in years, by which a role's start year precedes its company's founding year (`company_founding` map); 0 when no role predates its company |
+| `years_predating_company` | largest gap, in years (net of `company_predates_buffer_months`), by which a role's start predates its company's founding (`company_founding` map); 0 when no role predates its company |
 
 A role whose own dates are internally consistent can still be impossible against the outside
 world — the company did not exist yet. This is the one signal that reads an external fact:
-`company_founding` in `penalties.json`, the company analogue of `tool_eras`. Only companies
-named in the map are checked, so the pool's fictional placeholder companies are never flagged.
-The penalty curve tolerates one year (stealth/incubation before a public founding date) and
-escalates steeply past it.
+`company_founding` in `penalties.json`, the company analogue of `tool_eras` and following the
+same bare-year-or-`"YYYY-MM"` form (e.g. `Google: "1998-09"`; a bare year is read as that
+January). The role's **actual start month** is compared against the founding date's fractional
+year, and `company_predates_buffer_months` (the founding-date analogue of `anachronism_buffer_months`)
+absorbs a start a month or two ahead of the public founding date. Only companies named in the
+map are checked, so the pool's fictional placeholder companies are never flagged. The penalty
+curve tolerates one year (stealth/incubation before a public founding date) and escalates
+steeply past it.
 
 ---
 
