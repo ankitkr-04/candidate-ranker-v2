@@ -23,6 +23,8 @@ class IntegrityDeriver:
         self._slack = integrity.params.overrun_slack_months
         self._min_senior_rank = integrity.params.seniority_min_rank
         self._span_buffer = integrity.params.experience_span_buffer_years
+        self._anachronism_buffer_years = integrity.params.anachronism_buffer_months / 12.0
+        self._anachronism_grace_years = integrity.params.anachronism_grace_years
         self._tool_eras = {normalize_token(name): year for name, year in integrity.tool_eras.items()}
         self._company_founding = {
             normalize_token(name): year for name, year in integrity.company_founding.items()
@@ -131,10 +133,12 @@ class IntegrityDeriver:
             )
         )
 
-    def num_skill_anachronisms(self, candidate: Candidate, reference_year: int) -> float:
-        # Skills whose implied first-use year precedes the year the tool plausibly existed.
-        # Only skills named in tool_eras are checked; the rest are ignored.
-        count = 0
+    def _skill_overruns(self, candidate: Candidate, reference_year: int) -> list[float]:
+        # Per skill named in tool_eras, the number of years its claimed tenure predates the tool's
+        # own era, net of the per-skill grace buffer. Only beyond-buffer (positive) overruns are
+        # returned: a skill within the buffer of its era is not anachronistic. Skills not in
+        # tool_eras, and those without a stated duration, are ignored.
+        overruns: list[float] = []
         for s in candidate.skills:
             if not s.duration_months:
                 continue
@@ -142,9 +146,26 @@ class IntegrityDeriver:
             if era is None:
                 continue
             implied_start = reference_year - s.duration_months / 12.0
-            if implied_start < era:
-                count += 1
-        return float(count)
+            overrun = era - implied_start - self._anachronism_buffer_years
+            if overrun > 0:
+                overruns.append(overrun)
+        return overruns
+
+    def num_skill_anachronisms(self, candidate: Candidate, reference_year: int) -> float:
+        # How many skills are claimed for longer than the tool has existed (beyond the buffer).
+        return float(len(self._skill_overruns(candidate, reference_year)))
+
+    def skill_anachronism_years(self, candidate: Candidate, reference_year: int) -> float:
+        # Total beyond-buffer overrun in years -- the magnitude the time penalty scales against,
+        # so being a year ahead is gentler than ten. The aggregate grace forgives a *single*
+        # anachronism only: one tool known early via closed-source/pre-release exposure is
+        # plausible, several are not, so with two or more the full sum is charged with no relief.
+        overruns = self._skill_overruns(candidate, reference_year)
+        if not overruns:
+            return 0.0
+        if len(overruns) == 1:
+            return max(0.0, overruns[0] - self._anachronism_grace_years)
+        return float(sum(overruns))
 
     def years_predating_company(self, candidate: Candidate) -> float:
         # Largest number of years by which a role's start predates its company's founding.
@@ -177,6 +198,7 @@ class IntegrityDeriver:
             "num_skill_anomalies": self.num_skill_anomalies(candidate),
             "num_proficiency_anomalies": self.num_proficiency_anomalies(candidate),
             "num_skill_anachronisms": self.num_skill_anachronisms(candidate, reference.year),
+            "skill_anachronism_years": self.skill_anachronism_years(candidate, reference.year),
             "years_predating_company": self.years_predating_company(candidate),
         }
         # Return only the columns the policy declares, so the asset stays the source of truth.

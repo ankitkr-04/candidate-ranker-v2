@@ -58,6 +58,14 @@
                 "experience_span_buffer_years": {
                     "type": "number",
                     "description": "Buffer in years to allow for experience span calculation"
+                },
+                "anachronism_buffer_months": {
+                    "type": "number",
+                    "description": "Per-skill grace in months before a skill's claimed-tenure-vs-tool-era overrun counts as anachronistic (absorbs rounding and closed-source/pre-release exposure)"
+                },
+                "anachronism_grace_years": {
+                    "type": "number",
+                    "description": "Aggregate grace in years of beyond-buffer overrun forgiven before the anachronism penalty bites; the penalty then scales with the impossible years claimed"
                 }
             }
         },

@@ -34,6 +34,15 @@ class IntegrityParams(BaseModel):
     # to the reference date) before it reads as fabricated. Generous, so a normal candidate who
     # omits an early job is never flagged -- only physically impossible claims trip it.
     experience_span_buffer_years: float = 5.0
+    # Per-skill grace (in months) before a skill's claimed-tenure-vs-tool-era overrun counts as
+    # anachronistic. A month or two early absorbs rounding and plausible closed-source/pre-release
+    # exposure, so a single near-miss is never flagged.
+    anachronism_buffer_months: float = 3.0
+    # Grace (in years) forgiven when a candidate has exactly ONE anachronistic skill: a lone tool
+    # known early through closed-source/pre-release exposure is plausible, so a single small slip
+    # is effectively free. It does not apply once two or more skills are anachronistic -- early
+    # access to several tools at once is not credible -- where the full overrun is charged.
+    anachronism_grace_years: float = 0.75
 
 
 class SeniorityTier(BaseModel):

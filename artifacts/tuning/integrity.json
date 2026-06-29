@@ -90,7 +90,9 @@
   "params": {
     "overrun_slack_months": 18.0,
     "seniority_min_rank": 3,
-    "experience_span_buffer_years": 5.0
+    "experience_span_buffer_years": 5.0,
+    "anachronism_buffer_months": 3.0,
+    "anachronism_grace_years": 0.75
   },
   "seniority_ladder": {
     "default": 2,
@@ -147,6 +149,7 @@
       "num_skill_anomalies",
       "num_proficiency_anomalies",
       "num_skill_anachronisms",
+      "skill_anachronism_years",
       "years_predating_company"
     ]
   },
@@ -243,18 +246,21 @@
       "floor": 0.12
     },
     {
-      "type": "curve",
+      "type": "decay",
       "id": "skill_anachronism_penalty",
+      "feature": "skill_anachronism_years",
+      "base": 0.85,
+      "floor": 0.2
+    },
+    {
+      "type": "curve",
+      "id": "skill_anachronism_count_penalty",
       "feature": "num_skill_anachronisms",
       "direction": "max",
       "bands": [
         {
-          "at": 0.0,
-          "value": 1.0
-        },
-        {
           "at": 1.0,
-          "value": 0.97
+          "value": 1.0
         },
         {
           "at": 2.0,
@@ -266,7 +272,7 @@
         },
         {
           "at": 4.0,
-          "value": 0.33
+          "value": 0.35
         },
         {
           "value": 0.2
