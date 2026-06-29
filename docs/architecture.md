@@ -111,7 +111,7 @@ median_tenure_last_3_months   current_role_duration_months
 last_active_days   recruiter_response_rate   interview_completion_rate
 saved_by_recruiters_30d   applications_submitted_30d
 notice_period_days   github_activity_score
-num_qualifying_unevidenced_skills
+num_qualifying_unevidenced_skills   priority_assessment_signal
 num_education_overlaps   num_skill_anomalies   num_proficiency_anomalies   num_skill_anachronisms
 skill_anachronism_years   years_predating_company
 ─── categoricals (String) ────────────────────────────────────────
@@ -250,10 +250,11 @@ ranked. The ceiling is an upper bound: a skipped candidate cannot reach the top-
 perfect SLM result.
 
 Several multipliers exceed 1.0 (`domain_mandate_bonus` ×1.05, `narrow_domain_bonus`
-×1.08, `shipper_bonus` ×1.03, `github_bonus` ×1.03, `behavioral` up to ~1.05). They are gated
-on SLM/behavioural columns evaluated at their actual values here, so the ceiling counts them
-when their deterministic gate already holds and conservatively omits them otherwise — still an
-upper bound, so no placeable candidate is dropped at any threshold.
+×1.08, `shipper_bonus` ×1.03, `github_bonus` ×1.03, `behavioral` up to ~1.05,
+`verified_assessment_bonus` up to ×1.07). They are gated on SLM/behavioural columns evaluated at
+their actual values here, so the ceiling counts them when their deterministic gate already holds
+and conservatively omits them otherwise — still an upper bound, so no placeable candidate is
+dropped at any threshold.
 
 ```mermaid
 flowchart LR

@@ -124,6 +124,7 @@ than in the JD policy.
 | `verification_state` | `"both"` / `"one"` / `"neither"` from verified_email + verified_phone |
 | `applied_ml_years` | Σ(role_months/12 × ml_credit_factor) capped at years_of_experience |
 | `num_qualifying_unevidenced_skills` | count of skills in the policy's qualifying list |
+| `priority_assessment_signal` | verified-competence signal from `redrob_signals.skill_assessment_scores`: Σ over JD-relevant assessments (`lookups.skill_assessment` priority/secondary) scoring above `min_score` of `weight × (score − min_score)/(100 − min_score)`, capped at `cap`. CV/speech/generic-ML assessments are not in the map, so they add nothing — the verified, role-relevant scores are rewarded, the self-reported keyword noise is not. |
 
 ---
 

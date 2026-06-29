@@ -53,7 +53,7 @@ flowchart TD
     C2 --> D[career_substance_expr<br>base tier Σ flags×weight × gates clamped<br>+ bonus tier riding ABOVE the clamp]
     D --> E[skill_booster_expr<br>per_skill × qualifying_skills<br>if career_substance >= 0.6]
     E --> F[base_score<br>clip career_substance + skill_booster<br>lower bound 0 only — NOT capped at 1]
-    F --> G[JD multiplier stages<br>13 stages → mult__<id> columns]
+    F --> G[JD multiplier stages<br>14 stages → mult__<id> columns]
     G --> H[integrity penalty stages<br>12 stages → mult__<id> columns]
     H --> I[hard gates<br>4 gates → gate__<id> columns]
     I --> J[score = base_score<br>× Π all stage cols]
@@ -120,6 +120,21 @@ else 0
 evidenced by SLM confirmation). Skills that the SLM confirms do not double-count. The column
 the bonus multiplies is named by the policy (`skill_booster.count_feature`, defaulting to
 `num_qualifying_unevidenced_skills`), so the scorer carries no this-job column name.
+
+### verified_assessment_bonus
+
+A separate, multiplicative reward (a `curve` stage, not part of `base_score`) for **verified**
+Redrob skill-assessment scores in JD-relevant areas. Where `skill_booster` rewards *self-reported*
+listed skills, this rewards platform-administered test scores — credible evidence, the opposite of
+the self-reported keyword trap the JD warns about. The `priority_assessment_signal` metric
+(computed in `features/derive.py` from `lookups.skill_assessment`) sums, over a candidate's
+assessments, `weight × (score − min_score)/(100 − min_score)` for the JD's priority (must-have:
+retrieval, vector DB, eval/ranking, NLP, Python; weight 1.0) and secondary (nice-to-have: LLM
+fine-tuning/tooling; weight 0.4) skills only — CV/speech/generic-ML assessments are absent from the
+map and contribute nothing. The signal therefore accumulates on three axes (count × score ×
+priority), and the curve maps it to ×1.0–1.07: the ceiling is reached only by several priority
+assessments at high scores. Re-tuning the bonus magnitudes is ranker-only; changing the skill lists
+or `min_score` rebuilds the metric column (re-precompute, deterministic).
 
 ### Multiplier stage types
 
