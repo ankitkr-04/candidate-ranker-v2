@@ -14,8 +14,8 @@ flowchart TD
     FEAT --> TABLE[pl.DataFrame\nparquet_schema\nnull SLM cols]
 
     TABLE --> CEIL[ceiling pre-filter\nceiling_expr per candidate]
-    CEIL -->|ceiling >= 0.02\n~22k of 100k| SLM[SLM stage\nrun_slm_stage]
-    CEIL -->|ceiling < 0.02\n~78k| SKIP[null SLM cols\nscore ~0\nstill in parquet]
+    CEIL -->|"ceiling >= --slm-ceiling\n(tuned, e.g. 0.2 -> a few k)"| SLM[SLM stage\nrun_slm_stage]
+    CEIL -->|"below bar\nmost of the pool"| SKIP[null SLM cols\nscore ~0\nstill in parquet]
 
     SLM --> BATCH[SlmRunner\nvLLM · Qwen3-4B\nbatch by 1000]
     BATCH -->|checkpoint every 1000| FP[(features.parquet)]
@@ -76,7 +76,7 @@ PYTHON=.venv-gpu/bin/python ./precompute.sh --pool 100k --dtype half
 | `--no-slm` | off | skip the SLM stage; preserves existing cached SLM facts |
 | `--force` | off | recompute SLM facts for all candidates, ignoring the cache |
 | `--batch-size N` | 1000 | SLM candidates scored per checkpoint write |
-| `--slm-ceiling F` | 0.02 | skip SLM for candidates whose ceiling is below this value |
+| `--slm-ceiling F` | 0.02 | skip SLM for candidates whose ceiling is below this value; tuned per run — commonly raised (e.g. `0.2`) to shrink the GPU pass |
 | `--dtype` | auto | vLLM dtype; use `half` on GPUs without bf16 (e.g. Tesla T4) |
 | `--max-model-len N` | 4096 | vLLM max sequence length; lower increases concurrency |
 | `--max-tokens N` | 512 | max new tokens the model generates per candidate |
@@ -169,8 +169,11 @@ the scorer never reads it).
 If guided decoding fails (should not happen), the runner falls back to `_empty_fact`:
 all booleans false, empty strings for text fields.
 
-**Throughput on T4:** ~12 tokens/second, ~512 tokens per candidate ≈ ~45 s per candidate,
-~28 hours for 22k. The checkpoint mechanism makes this survivable across interruptions.
+**Throughput on L4:** vLLM batches candidates, so the amortized rate is far better than the
+per-candidate sequential cost — empirically about **15 min per 2k candidates** (~0.45 s each).
+Wall-clock therefore scales with how many clear `--slm-ceiling`: roughly ~50 min for the ~6.5k
+selected at `0.2`, longer at a lower bar. The checkpoint mechanism makes this survivable across
+interruptions.
 
 ### 5 — Checkpointing / resume
 

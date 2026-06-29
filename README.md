@@ -8,23 +8,74 @@ writes `candidate_id,rank,score,reasoning` as a CSV. Designed for the Redrob Hac
 
 ## How it works
 
-Two stages with a Parquet handoff:
+Two stages with a Parquet handoff. The expensive, non-deterministic work (parsing,
+normalization, SLM judgments) runs **once** in precompute and is frozen into a flat Parquet
+file; the ranker is a pure, deterministic function of that file plus the compiled policy.
 
+```mermaid
+flowchart TB
+    JD["assets/job/jd_parsed.json\nJD scoring policy"]
+    IP["assets/integrity/penalties.json\njob-agnostic plausibility"]
+    JD --> PARSE["jd_parser.parse\nvalidate + compile"]
+    IP --> PARSE
+    PARSE --> TUN["artifacts/tuning/*.json\ntuning · integrity · slm_questions"]
+
+    subgraph PRE["① Precompute — GPU · run once · no time limit"]
+        direction TB
+        POOL["candidate pool .jsonl"] --> NORM["normalize · geo / company / title"]
+        NORM --> DET["deterministic features\nflags · metrics · categoricals"]
+        DET --> ITG["integrity signals\ndate · skill · education plausibility"]
+        ITG --> CEIL{"ceiling ≥ --slm-ceiling?\ntuned per run, e.g. 0.2"}
+        CEIL -->|"clears bar (a few k)"| SLM["SLM judgments\nQwen3-4B · 30 booleans"]
+        CEIL -->|"below bar (most)"| SKIP["null SLM cols · score ~0"]
+    end
+
+    TUN --> DET
+    SLM --> PARQ[("features.parquet\none flat row per candidate")]
+    SKIP --> PARQ
+
+    subgraph RANK["② Ranking — CPU · ≤5 min · ≤16 GB · no network"]
+        direction TB
+        SCAN["scan parquet (lazy)"] --> COMPILE["compile policy →\nvectorized Polars expr"]
+        COMPILE --> SCORE["score · sort · tie-break\nsingle pass · all 100k"]
+        SCORE --> REASON["grounded reasoning · top-N"]
+    end
+
+    PARQ --> SCAN
+    TUN --> COMPILE
+    REASON --> OUT["submission.csv\ncandidate_id · rank · score · reasoning"]
 ```
-precompute (GPU + network)     →     artifacts/<pool>/features.parquet
-ranking    (CPU · ≤5 min · ≤16 GB · no network)     →     submission.csv
+
+**Key invariant — no candidate is ever removed.** Gates, honeypots, and penalties drive a
+score toward 0, but the row stays in the ranking, so weak or implausible profiles *sink*
+rather than disappear. The 100k pool ranks in **< 0.2 s** on CPU.
+
+### What the score is made of
+
+The final score is a ranking key (not a normalized probability): a single SLM-dependent
+**substance** core, lifted by deterministic **multipliers** and pulled down by deterministic
+**penalties / gates**.
+
+```mermaid
+flowchart TB
+    MUST["must-have flags × weight\n→ clamped base tier (~0.85 cap)"] --> CS(("career_substance"))
+    NICE["nice-to-have flags × weight\n→ bonus tier, rides ABOVE the clamp"] --> CS
+    CS --> ADD["+ skill_booster\nqualifying unevidenced skills · ≤0.06\n(only if substance ≥ 0.6)"]
+    ADD --> BASE[["base_score = clip(≥ 0)\n≈ 0 … 1.19"]]
+    BASE --> M["× Π JD multipliers\nlocation · notice · experience band ·\ncompany context · domain/shipper bonuses (>1.0)"]
+    M --> P["× Π integrity penalties\nanachronism (count × time) · over-claim ·\ndate conflicts · company-predates"]
+    P --> G["× Π hard gates\nlifelong-services ×0.12 · CV/speech-only · …"]
+    G --> FIN[["final score\ndeterministic given the parquet"]]
 ```
 
-**Precompute** parses the candidate pool, normalizes noisy fields, computes every
-deterministic feature and integrity signal, and runs a small language model (Qwen3-4B) to
-get 30 boolean judgments per candidate. Everything lands in one flat Parquet file — one
-row per candidate.
+`career_substance` is the **only** part that depends on the SLM; everything that multiplies it
+is a deterministic function of the parquet columns. That is what makes the best-possible score
+an exact, computable **ceiling** — used by precompute to skip the SLM for candidates who could
+never place, saving the GPU pass for the few thousand who can. The cutoff (`--slm-ceiling`) is
+tuned per run, not fixed — we most often use `0.2`, which selects a few thousand of the 100k;
+a lower bar admits more.
 
-**Ranking** scans that Parquet, compiles the entire scoring policy into vectorized Polars
-expressions, scores all 100k candidates in a single pass, and emits the top-N rows with
-grounded reasoning text. No JSON, no model, no network at this stage.
-
-→ Full details: [docs/architecture.md](docs/architecture.md)
+→ Full details, every stage type, and the predicate language: [docs/architecture.md](docs/architecture.md)
 
 ---
 

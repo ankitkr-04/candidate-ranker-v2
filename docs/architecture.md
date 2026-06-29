@@ -16,9 +16,9 @@ flowchart LR
         B --> C[normalize\ngeo / company / title]
         C --> D[deterministic features\nflags · metrics · categoricals]
         D --> E[integrity signals\njob-agnostic plausibility]
-        E --> F{ceiling\npre-filter}
-        F -->|ceiling >= 0.02| G[SLM inference\nQwen3-4B · vLLM]
-        F -->|ceiling < 0.02| H[keep null SLM cols\nscore ~0, still ranked]
+        E --> F{ceiling >= --slm-ceiling?\ntuned per run, e.g. 0.2}
+        F -->|clears bar| G[SLM inference\nQwen3-4B · vLLM]
+        F -->|below bar| H[keep null SLM cols\nscore ~0, still ranked]
         G --> I[(features.parquet\none row per candidate)]
         H --> I
     end
@@ -241,21 +241,25 @@ headroom is exact, and the uncapped-base scoring change never makes the filter w
 strong profile. The one column it must pin is `career_substance` itself (one stage,
 `github_bonus`, gates on it): `select_for_slm` sets it to 1.0, which clears that gate's
 `>= 0.6` threshold at its max, so the pin is correct. Precompute runs the SLM only for
-candidates whose `ceiling >= --slm-ceiling` (default 0.02). Skipped candidates keep null SLM
-columns, score ~0, and stay ranked. The ceiling is an upper bound: a skipped candidate cannot
-reach the top-N even with a perfect SLM result.
+candidates whose `ceiling >= --slm-ceiling`. That threshold is **tuned per run, not fixed** —
+the code default is `0.02`, but a higher bar trades recall for a smaller GPU pass (we have most
+often run `0.2`). The selected count therefore varies with both the threshold and the current
+policy weights — as a rough sense of scale, under the current policy `0.2` selects ~6.5k of
+100k and `0.02` selects ~40k. Skipped candidates keep null SLM columns, score ~0, and stay
+ranked. The ceiling is an upper bound: a skipped candidate cannot reach the top-N even with a
+perfect SLM result.
 
 Several multipliers exceed 1.0 (`domain_mandate_bonus` ×1.05, `narrow_domain_bonus`
 ×1.08, `shipper_bonus` ×1.03, `github_bonus` ×1.03, `behavioral` up to ~1.05). They are gated
 on SLM/behavioural columns evaluated at their actual values here, so the ceiling counts them
 when their deterministic gate already holds and conservatively omits them otherwise — still an
-upper bound, so no placeable candidate is dropped at the permissive 0.02 threshold.
+upper bound, so no placeable candidate is dropped at any threshold.
 
 ```mermaid
 flowchart LR
-    A[all 100k candidates] --> B{ceiling\n>= 0.02?}
-    B -->|yes ~22k| C[SLM inference\nQwen3-4B]
-    B -->|no ~78k| D[null SLM cols\nscore ~ 0\nstill ranked]
+    A[all 100k candidates] --> B{"ceiling ≥ --slm-ceiling?\n(tuned per run, e.g. 0.2)"}
+    B -->|"clears bar\n(a few thousand)"| C[SLM inference\nQwen3-4B]
+    B -->|"below bar\n(most of the pool)"| D[null SLM cols\nscore ~ 0\nstill ranked]
     C --> E[features.parquet\nfull 100k rows]
     D --> E
 ```
