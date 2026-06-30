@@ -15,8 +15,9 @@ is reading the parquet, not computation.
 ```bash
 # via the shell wrapper (recommended)
 ./ranker.sh --pool 100k
-./ranker.sh --pool 100k --out results/100k/submission.csv --top 100 --debug
+./ranker.sh --pool 100k --top 100 --debug
 ./ranker.sh --pool 100k --format xlsx          # -> results/100k/submission.xlsx
+./ranker.sh --pool 100k --out report.xlsx      # extension picks the format
 
 # via Python module directly
 python -m src.ranking.main --pool sample
@@ -35,13 +36,18 @@ the environment overrides the interpreter.
 | `--candidates FILE` | — | candidate file path; uses its stem to locate the parquet |
 | `--features PATH` | — | explicit path to features.parquet (overrides pool/candidates) |
 | `--tuning PATH` | `artifacts/tuning/tuning.json` | override the tuning artifact |
-| `--out PATH` | `results/<pool>/submission.<format>` | output path |
-| `--format {csv,xlsx}` | `csv` | submission format; `xlsx` (Excel) for submission, otherwise CSV. Requires `xlsxwriter` for `xlsx` |
+| `--out PATH` | `results/<pool>/submission.<format>` | output path; its extension (`.xlsx` / `.csv`) selects the format. Mutually exclusive with `--format` |
+| `--format {csv,xlsx}` | `csv` | submission format when `--out` is omitted; `xlsx` (Excel) requires `xlsxwriter`. Mutually exclusive with `--out` |
 | `--top N` | `100` | number of candidates to emit |
 | `--debug` | off | also write the full scored ranking to `results/<pool>/debug.jsonl` **and** a readable `results/<pool>/audit_trace.jsonl` |
 | `--audit-top N` | `--top` | rows to include in `audit_trace.jsonl` (widen to explain candidates further down the ranking) |
 
 Exactly one of `--pool`, `--candidates`, or `--features` is required.
+
+The format is chosen one of two ways, and **`--out` and `--format` cannot be combined** (the
+ranker errors if both are given): pass `--out` and the extension decides (`report.xlsx` → Excel,
+`report.csv` → CSV), or omit `--out` and let `--format` set the format of the default
+`results/<pool>/submission.<format>` path (CSV unless `--format xlsx`).
 
 ---
 

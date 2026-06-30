@@ -3,6 +3,7 @@
 # Examples:
 #   ./ranker.sh --pool 100k                       # -> results/100k/submission.csv
 #   ./ranker.sh --pool 100k --format xlsx         # -> results/100k/submission.xlsx
+#   ./ranker.sh --pool 100k --out report.xlsx     # extension picks the format (don't also pass --format)
 #   ./ranker.sh --candidates assets/candidates/sample_pool.json --debug
 set -euo pipefail
 cd "$(dirname "$0")"

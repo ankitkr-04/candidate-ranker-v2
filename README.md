@@ -116,6 +116,11 @@ PYTHON=.venv-gpu/bin/python ./precompute.sh --pool 100k --dtype auto
 ./ranker.sh --pool 100k --out results/100k/submission.csv --debug
 ```
 
+Writes CSV by default. To get an Excel workbook, either name the format with `--format xlsx`
+(→ `results/<pool>/submission.xlsx`) or let the `--out` extension decide (`--out report.xlsx`).
+Pass one or the other — `--out` and `--format` together is an error, since the path extension
+already names the format.
+
 ### 5 — Validate submission
 
 ```bash

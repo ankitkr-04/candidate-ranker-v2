@@ -9,7 +9,8 @@ sink rather than disappear.
 Examples:
   python -m src.ranking.main --pool sample
   python -m src.ranking.main --candidates assets/candidates/100k_pool.jsonl --top 100 --debug
-  python -m src.ranking.main --pool 100k --format xlsx
+  python -m src.ranking.main --pool 100k --format xlsx          # -> results/100k/submission.xlsx
+  python -m src.ranking.main --pool 100k --out report.xlsx      # extension picks the format
 """
 
 import argparse
@@ -78,12 +79,16 @@ def main() -> None:
     parser.add_argument("--features", help="Path to features.parquet (overrides pool resolution).")
     parser.add_argument("--pool", help="Pool name, e.g. sample / 1k / 100k.")
     parser.add_argument("--tuning", help="Path to tuning.json (default artifacts/tuning/tuning.json).")
-    parser.add_argument("--out", help="Output path (default results/<pool>/submission.<format>).")
-    parser.add_argument("--format", choices=["csv", "xlsx"], default="csv", help="Submission format (default csv; xlsx for submission).")
+    parser.add_argument("--out", help="Output path; its extension picks the format (.xlsx or .csv). Mutually exclusive with --format.")
+    parser.add_argument("--format", choices=["csv", "xlsx"], default=None, help="Submission format when --out is omitted (default csv). Mutually exclusive with --out -- pass one or the other, not both.")
     parser.add_argument("--top", type=int, default=100, help="Number of candidates to output.")
     parser.add_argument("--debug", action="store_true", help="Also write the full scored ranking to debug.jsonl and a readable audit_trace.jsonl.")
     parser.add_argument("--audit-top", type=int, help="Rows to include in audit_trace.jsonl (default: --top).")
     args = parser.parse_args()
+    if args.out and args.format is not None:
+        parser.error(
+            "pass either --out (extension picks the format) or --format, not both."
+        )
 
     tuning = load_tuning(Path(args.tuning) if args.tuning else None)
     integrity = load_integrity()
@@ -98,9 +103,16 @@ def main() -> None:
     ranked = rank(frame, tuning, integrity, args.top)
     submission = build_submission(ranked, args.top)
 
-    out_path = Path(args.out) if args.out else pool_result_dir(pool) / f"submission.{args.format}"
+    # --out and --format are mutually exclusive (guarded above). With --out, its
+    # extension is the source of truth; otherwise --format names the default file.
+    if args.out:
+        out_path = Path(args.out)
+        fmt = "xlsx" if out_path.suffix.lower() == ".xlsx" else "csv"
+    else:
+        fmt = args.format or "csv"
+        out_path = pool_result_dir(pool) / f"submission.{fmt}"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    if args.format == "xlsx":
+    if fmt == "xlsx":
         submission.write_excel(out_path)
     else:
         submission.write_csv(out_path)
