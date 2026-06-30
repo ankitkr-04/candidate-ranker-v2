@@ -37,6 +37,7 @@ sandbox_link: "https://candidate-ranker-bnaecfdavasak6lyavkdc7.streamlit.app/"
 # Does not need the SLM or the full pool. See submission_spec §10.5.
 
 reproduce_command: "python -m src.ranking.main --features artifacts/100k/features.parquet --out submission.csv"
+# use --out submission.xlsx to produce XLSX instead of CSV. The ranking step is CPU-only, no GPU, no network.
 # The ranking step that produces the CSV: CPU-only, no GPU, no network. Reads the committed
 # precomputed features.parquet (allowed per spec §10.3) and writes the top-100 in <1s.
 # features.parquet is regenerated offline (GPU) by:
