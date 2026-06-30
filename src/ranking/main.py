@@ -9,6 +9,7 @@ sink rather than disappear.
 Examples:
   python -m src.ranking.main --pool sample
   python -m src.ranking.main --candidates assets/candidates/100k_pool.jsonl --top 100 --debug
+  python -m src.ranking.main --pool 100k --format xlsx
 """
 
 import argparse
@@ -77,7 +78,8 @@ def main() -> None:
     parser.add_argument("--features", help="Path to features.parquet (overrides pool resolution).")
     parser.add_argument("--pool", help="Pool name, e.g. sample / 1k / 100k.")
     parser.add_argument("--tuning", help="Path to tuning.json (default artifacts/tuning/tuning.json).")
-    parser.add_argument("--out", help="Output CSV path (default results/<pool>/submission.csv).")
+    parser.add_argument("--out", help="Output path (default results/<pool>/submission.<format>).")
+    parser.add_argument("--format", choices=["csv", "xlsx"], default="csv", help="Submission format (default csv; xlsx for submission).")
     parser.add_argument("--top", type=int, default=100, help="Number of candidates to output.")
     parser.add_argument("--debug", action="store_true", help="Also write the full scored ranking to debug.jsonl and a readable audit_trace.jsonl.")
     parser.add_argument("--audit-top", type=int, help="Rows to include in audit_trace.jsonl (default: --top).")
@@ -96,9 +98,12 @@ def main() -> None:
     ranked = rank(frame, tuning, integrity, args.top)
     submission = build_submission(ranked, args.top)
 
-    out_path = Path(args.out) if args.out else pool_result_dir(pool) / "submission.csv"
+    out_path = Path(args.out) if args.out else pool_result_dir(pool) / f"submission.{args.format}"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    submission.write_csv(out_path)
+    if args.format == "xlsx":
+        submission.write_excel(out_path)
+    else:
+        submission.write_csv(out_path)
     print(f"Wrote {submission.height} ranked candidates to {out_path}")
 
     if args.debug:

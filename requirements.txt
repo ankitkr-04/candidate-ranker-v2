@@ -4,6 +4,7 @@
 pydantic>=2
 orjson>=3.10
 polars>=1
+xlsxwriter>=3      # optional: only needed for `--format xlsx` submission output
 
 # Sandbox UI (Streamlit demo). Not needed to run the ranker from the CLI; only the
 # hosted demo (streamlit_app.py) imports these.

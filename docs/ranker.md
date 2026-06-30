@@ -16,6 +16,7 @@ is reading the parquet, not computation.
 # via the shell wrapper (recommended)
 ./ranker.sh --pool 100k
 ./ranker.sh --pool 100k --out results/100k/submission.csv --top 100 --debug
+./ranker.sh --pool 100k --format xlsx          # -> results/100k/submission.xlsx
 
 # via Python module directly
 python -m src.ranking.main --pool sample
@@ -34,7 +35,8 @@ the environment overrides the interpreter.
 | `--candidates FILE` | — | candidate file path; uses its stem to locate the parquet |
 | `--features PATH` | — | explicit path to features.parquet (overrides pool/candidates) |
 | `--tuning PATH` | `artifacts/tuning/tuning.json` | override the tuning artifact |
-| `--out PATH` | `results/<pool>/submission.csv` | output CSV path |
+| `--out PATH` | `results/<pool>/submission.<format>` | output path |
+| `--format {csv,xlsx}` | `csv` | submission format; `xlsx` (Excel) for submission, otherwise CSV. Requires `xlsxwriter` for `xlsx` |
 | `--top N` | `100` | number of candidates to emit |
 | `--debug` | off | also write the full scored ranking to `results/<pool>/debug.jsonl` **and** a readable `results/<pool>/audit_trace.jsonl` |
 | `--audit-top N` | `--top` | rows to include in `audit_trace.jsonl` (widen to explain candidates further down the ranking) |
@@ -61,7 +63,7 @@ flowchart TD
     K --> M[sort: score desc<br>candidate_id asc]
     M --> N[head top-N<br>assign rank 1..N]
     N --> O[compose_reasoning<br>Python loop over ≤100 rows]
-    O --> P[write submission.csv]
+    O --> P["write submission.&lt;format&gt;<br>csv (default) or xlsx"]
 ```
 
 ---
@@ -286,3 +288,7 @@ python -m src.features.validate_submission artifacts/100k/submission.csv
 
 Checks: `.csv` extension, exactly `candidate_id,rank,score,reasoning` header, exactly 100
 data rows, `CAND_XXXXXXX` ID format, unique ranks 1–100, non-increasing scores.
+
+The validator reads CSV only. An `--format xlsx` workbook holds the same rows and columns,
+so validate the CSV (the default output) and generate the `xlsx` from the same run when an
+Excel file is wanted for submission.
